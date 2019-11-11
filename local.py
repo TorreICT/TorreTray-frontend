@@ -1,0 +1,1 @@
+LOCALE_WORKING_DIR_PATH = '/home/pietro/Documenti/Python/torre_tray_official/'

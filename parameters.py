@@ -1,4 +1,4 @@
-from locale import *
+from local import *
 # ############ PATHS ##############
 WORKING_DIR_PATH = LOCALE_WORKING_DIR_PATH
 IMG_DIR_PATH = WORKING_DIR_PATH + 'res/img/'
