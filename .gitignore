@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+database_tray.db
+GUI/logs/
+back_end/logs/
+.idea/

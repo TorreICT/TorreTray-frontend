@@ -1,3 +1,4 @@
+import requests
 from escpos.printer import Usb
 from jsonschema.compat import urlopen
 from .logger import *
@@ -70,6 +71,72 @@ def verify_db():
         logger.critical('impossibile connettersi al database ' + str(e))
         return False
 
+def db_update():
+    logger = get_logger('db_update()')
+    try:
+        db.connect()
+        time = datetime.datetime.now().time()
+        if datetime.datetime.strptime("00:01", '%H:%M').time() <= time < datetime.datetime.strptime(LUNCH_END_TIME, '%H:%M').time():
+            json_data = get_registro_pasti()
+            if json_data != 0:
+                json_data = json_data['nomi']['Pranzo']
+                logger.info('aggiornamento dati pranzo')
+            else:
+                logger.warning('impossibile aggiornare')
+                return 0
+        else:
+            json_data = get_registro_pasti()
+            if json_data != 0:
+                json_data = json_data['nomi']['Cena']
+                logger.info('aggiornamento dati cena')
+            else:
+                logger.warning('impossibile aggiornare')
+                return 0
+        for i in json_data:
+
+            valid_status = db.get_valid(i['nome'])
+
+            if valid_status is None:
+                db.set_name(i['nome'])
+                if i['dieta'] != "":
+                    db.set_dieta(i['nome'], i['dieta'])
+                valid_status = 0
+                logger.info('aggiunto utente non presente nel database: ' + i['nome'])
+            else:
+                valid_status = valid_status[0]
+
+            if valid_status == 0:
+                tray_status = db.get_tray(i['nome'])[0]
+
+                if tray_status == 0 and i['stato'] == 'Vassoio':
+                    db.set_tray(i['nome'], 1)
+                elif tray_status == 1 and i['stato'] != 'Vassoio':
+                    db.set_tray(i['nome'], 0)
+            else:
+                db.set_tray(i['nome'], 0)
+                db.set_done(i['nome'], 0)
+
+        db.set_last_update(datetime.datetime.now().strftime('%d/%m/%y %H:%M'))
+        db.close_connection()
+
+        return 1
+    except:
+        logger.error('impossibile connettersi al database')
+        return 0
+
+def get_registro_pasti():
+    logger = get_logger('get_registro_pasti()')
+    try:
+        params = [(URL_PARAM, datetime.datetime.now().date())]
+        response = requests.get(URL, params=params)
+        data = response.json()
+        # Correzione del nome di Gabriele Munafò
+        data["nomi"]["Pranzo"][46]["nome"] = data["nomi"]["Pranzo"][46]["nome"].replace("o&#039;", "ò")
+        data["nomi"]["Cena"][46]["nome"] = data["nomi"]["Cena"][46]["nome"].replace("o&#039;", "ò")
+        return data
+    except:
+        logger.error('impossibile fare il get del json')
+        return 0
 
 def start_print_process(print_queque):
     logger = get_logger('start_print_process()')

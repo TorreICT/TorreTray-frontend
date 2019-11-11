@@ -1,7 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="b014d5bf-2141-457d-8b85-77ec2b5ad0c7" name="Default Changelist" comment="" />
+    <list default="true" id="b014d5bf-2141-457d-8b85-77ec2b5ad0c7" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/sqldialects.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GUI/functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/GUI/functions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GUI/logger.py" beforeDir="false" afterPath="$PROJECT_DIR$/GUI/logger.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GUI/logs/2019-11-11.log" beforeDir="false" afterPath="$PROJECT_DIR$/GUI/logs/2019-11-11.log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GUI/window.py" beforeDir="false" afterPath="$PROJECT_DIR$/GUI/window.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back_end/logger.py" beforeDir="false" afterPath="$PROJECT_DIR$/back_end/logger.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database_tray.db" beforeDir="false" afterPath="$PROJECT_DIR$/database_tray.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/parameters.py" beforeDir="false" afterPath="$PROJECT_DIR$/parameters.py" afterDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -15,11 +27,16 @@
       </list>
     </option>
   </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
   <component name="ProjectId" id="1TTvUT5z4PuYKN7qIM3j2CKhHn5" />
   <component name="PropertiesComponent">
+    <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/GUI" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
   </component>
   <component name="PyConsoleOptionsProvider">
     <option name="myPythonConsoleState">
@@ -45,7 +62,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.main_be">
+  <component name="RunManager" selected="Python.main">
     <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="torretray_release" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -112,16 +129,40 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="window" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="torretray_release" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/GUI" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/GUI/window.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <list>
       <item itemvalue="Python.main" />
       <item itemvalue="Python.main_be" />
       <item itemvalue="Python.main_fe" />
+      <item itemvalue="Python.window" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.main_be" />
         <item itemvalue="Python.main" />
+        <item itemvalue="Python.window" />
         <item itemvalue="Python.main_fe" />
+        <item itemvalue="Python.main_be" />
       </list>
     </recent_temporary>
   </component>
@@ -136,16 +177,34 @@
       <option name="presentableId" value="Default" />
       <updated>1573496915617</updated>
       <workItem from="1573496918159" duration="4073000" />
+      <workItem from="1573508739389" duration="1806000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="1" />
   </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName="*.log" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/torretray_release$main_fe.coverage" NAME="main_fe Coverage Results" MODIFIED="1573506992979" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/GUI" />
     <SUITE FILE_PATH="coverage/torretray_release$main.coverage" NAME="main Coverage Results" MODIFIED="1573507053757" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/torretray_release$main_be.coverage" NAME="main_be Coverage Results" MODIFIED="1573507133649" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/back_end" />
+    <SUITE FILE_PATH="coverage/torre_tray_official$main_fe.coverage" NAME="main_fe Coverage Results" MODIFIED="1573509656246" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/GUI" />
+    <SUITE FILE_PATH="coverage/torre_tray_official$main.coverage" NAME="main Coverage Results" MODIFIED="1573510658713" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/torretray_release$main__1_.coverage" NAME="main (1) Coverage Results" MODIFIED="1573506775708" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/back_end" />
+    <SUITE FILE_PATH="coverage/torre_tray_official$window.coverage" NAME="window Coverage Results" MODIFIED="1573510328239" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/GUI" />
   </component>
 </project>
