@@ -34,27 +34,20 @@ def create_scheduler_time():
     sched_times = []
 
     lunch_start_time = datetime.datetime.strptime(LUNCH_START_TIME, '%H:%M')
-    lunch_end_time = datetime.datetime.strptime(LUNCH_END_TIME, '%H:%M')
     dinner_start_time = datetime.datetime.strptime(DINNER_START_TIME, '%H:%M')
-    dinner_end_time = datetime.datetime.strptime(DINNER_END_TIME, '%H:%M')
 
-    minutes_from_end_lunch = datetime.datetime.strptime(MINUTES_FROM_THE_END_LUNCH, '%M').minute
-    minutes_from_end_dinner = datetime.datetime.strptime(MINUTES_FROM_THE_END_DINNER, '%M').minute
-
-    max_luch_sched = lunch_end_time - datetime.timedelta(
-        minutes=minutes_from_end_lunch)
-    max_dinner_sched = dinner_end_time - datetime.timedelta(
-        minutes=minutes_from_end_dinner)
+    max_lunch_sched = datetime.datetime.strptime(LAST_LUNCH_UPDATE_TIME, '%H:%M')
+    max_dinner_sched = datetime.datetime.strptime(LAST_DINNER_UPDATE_TIME, '%H:%M')
 
     update_interval = datetime.datetime.strptime(UPDATE_INTERVAL_MINUTES, '%M').minute
 
     i = lunch_start_time + datetime.timedelta(
         minutes=update_interval)
-    while i < max_luch_sched:
+    while i < max_lunch_sched:
         sched_times.append(i.strftime("%H:%M"))
         i = i + datetime.timedelta(
             minutes=update_interval)
-    sched_times.append(max_luch_sched.strftime("%H:%M"))
+    sched_times.append(max_lunch_sched.strftime("%H:%M"))
     i = dinner_start_time + datetime.timedelta(
         minutes=update_interval)
     while i < max_dinner_sched:
