@@ -13,5 +13,18 @@ STATBAR_PRINT_ABORTED_MES = u"\u2718 stampa cancellata"
 STATBAR_UPDATE_MES = u"\u2714 aggiornato"
 STATBAR_LAST_UPDATE_TEMPLATE = "ultimo aggiornamento: "
 
+# QUERIES ##
+SELECT_SIGNED_TRAYS_QUERY = """SELECT * FROM tray_status WHERE
+                            "tray"=1 AND
+                            "done"=1 AND
+                            "valid"=0;"""
+
+SELECT_NOT_SIGNED_TRAYS_QUERY = """SELECT * FROM tray_status WHERE
+                                "tray"=1 AND
+                                "done"=0 AND
+                                "valid"=0;"""
+
+SELECT_CLOCK_QUERY = """SELECT * FROM clock;"""
+
 # TODO: aggiunger labels dei logs
 # LOGS #

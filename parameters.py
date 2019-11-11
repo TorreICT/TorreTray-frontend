@@ -16,19 +16,6 @@ CLOCK_DB_CREATE_QUERY = """CREATE TABLE IF NOT EXISTS "clock" (
              "last_update" varchar(50)
            );"""
 
-# TODO: mettere nel codice
-SELECT_SIGNED_TRAYS_QUERY = """SELECT * FROM tray_status WHERE
-                            "tray"=1 AND
-                            "done"=1 AND
-                            "valid"=0;"""
-
-SELECT_NOT_SIGNED_TRAYS_QUERY = """SELECT * FROM tray_status WHERE
-                                "tray"=1 AND
-                                "done"=0 AND
-                                "valid"=0;"""
-
-SELECT_CLOCK_QUERY = """SELECT * FROM clock;"""
-
 # ############ PARAMETERS ##############
 URL = 'https://mycollegeapp.rui.it/jsonapi?residenza=dG9ycmVzY2FsbGE-'
 URL_PARAM = 'data'
