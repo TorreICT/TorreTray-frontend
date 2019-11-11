@@ -4,3 +4,4 @@ database_tray.db
 GUI/logs/
 back_end/logs/
 .idea/
+res/__pychache__/
