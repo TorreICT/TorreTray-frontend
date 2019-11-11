@@ -5,3 +5,4 @@ GUI/logs/
 back_end/logs/
 .idea/
 res/__pychache__/
+locale.py

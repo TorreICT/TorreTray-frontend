@@ -1,5 +1,6 @@
+from locale import *
 # ############ PATHS ##############
-WORKING_DIR_PATH = '/home/peppetort/Scrivania/Programmazione/Projects/torre_tray_official/'
+WORKING_DIR_PATH = LOCALE_WORKING_DIR_PATH
 IMG_DIR_PATH = WORKING_DIR_PATH + 'res/img/'
 DB_FILE_PATH = WORKING_DIR_PATH + 'database_tray.db'
 
