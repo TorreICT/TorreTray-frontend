@@ -1,0 +1,265 @@
+import requests
+from database import *
+import datetime
+from urllib.request import urlopen
+from .logger import *
+import simpleaudio as sa
+import threading
+import os
+import time
+
+def reboot_sys():
+    logger = get_logger('reboot_sys()')
+    logger.info('reboot tra 5 secondi')
+    time.sleep(5)
+    os.system("sudo reboot")
+
+
+def play_sound():
+    wave_obj = sa.WaveObject.from_wave_file(WORKING_DIR_PATH + 'res/glass_ping.wav')
+    play_obj = wave_obj.play()
+    play_obj.wait_done()
+
+
+def run_play_sound():
+    logger = get_logger('run_palay_sound()')
+    if len(create_not_signed_queue()) != 0:
+        try:
+            threading.Thread(target=play_sound).start()
+        except:
+            logger.error('impossibile spawnare il thread del suono')
+
+
+def create_scheduler_time():
+    sched_times = []
+
+    lunch_start_time = datetime.datetime.strptime(LUNCH_START_TIME, '%H:%M')
+    lunch_end_time = datetime.datetime.strptime(LUNCH_END_TIME, '%H:%M')
+    dinner_start_time = datetime.datetime.strptime(DINNER_START_TIME, '%H:%M')
+    dinner_end_time = datetime.datetime.strptime(DINNER_END_TIME, '%H:%M')
+
+    minutes_from_end_lunch = datetime.datetime.strptime(MINUTES_FROM_THE_END_LUNCH, '%M').minute
+    minutes_from_end_dinner = datetime.datetime.strptime(MINUTES_FROM_THE_END_DINNER, '%M').minute
+
+    max_luch_sched = lunch_end_time - datetime.timedelta(
+        minutes=minutes_from_end_lunch)
+    max_dinner_sched = dinner_end_time - datetime.timedelta(
+        minutes=minutes_from_end_dinner)
+
+    update_interval = datetime.datetime.strptime(UPDATE_INTERVAL_MINUTES, '%M').minute
+
+    i = lunch_start_time + datetime.timedelta(
+        minutes=update_interval)
+    while i < max_luch_sched:
+        sched_times.append(i.strftime("%H:%M"))
+        i = i + datetime.timedelta(
+            minutes=update_interval)
+    sched_times.append(max_luch_sched.strftime("%H:%M"))
+    i = dinner_start_time + datetime.timedelta(
+        minutes=update_interval)
+    while i < max_dinner_sched:
+        sched_times.append(i.strftime("%H:%M"))
+        i = i + datetime.timedelta(
+            minutes=update_interval)
+    sched_times.append(max_dinner_sched.strftime("%H:%M"))
+
+    return sched_times
+
+
+def get_registro_pasti():
+    logger = get_logger('get_registro_pasti()')
+    try:
+        params = [(URL_PARAM, datetime.datetime.now().date())]
+        response = requests.get(URL, params=params)
+        data = response.json()
+        # Correzione del nome di Gabriele Munafò
+        data["nomi"]["Pranzo"][46]["nome"] = data["nomi"]["Pranzo"][46]["nome"].replace("o&#039;", "ò")
+        data["nomi"]["Cena"][46]["nome"] = data["nomi"]["Cena"][46]["nome"].replace("o&#039;", "ò")
+        return data
+    except:
+        logger.error('impossibile fare il get del json')
+        return 0
+
+
+def set_db():
+    json_data = get_registro_pasti()
+    logger = get_logger('set_db()')
+    if json_data != 0:
+        json_data = json_data['nomi']['Pranzo']
+        try:
+            db.connect()
+            for i in json_data:
+                db.set_name(i['nome'])
+                if i['dieta'] != "":
+                    db.set_dieta(i['nome'], i['dieta'])
+            db.close_connection()
+            logger.info('database compilato')
+            return 1
+        except:
+            logger.error('impossibile connettersi al database')
+            return 0
+
+
+def db_update():
+    logger = get_logger('db_update()')
+    try:
+        db.connect()
+        time = datetime.datetime.now().time()
+        if datetime.datetime.strptime("00:01", '%H:%M').time() <= time < datetime.datetime.strptime(LUNCH_END_TIME, '%H:%M').time():
+            json_data = get_registro_pasti()
+            if json_data != 0:
+                json_data = json_data['nomi']['Pranzo']
+                logger.info('aggiornamento dati pranzo')
+            else:
+                logger.warning('impossibile aggiornare')
+                return 0
+        else:
+            json_data = get_registro_pasti()
+            if json_data != 0:
+                json_data = json_data['nomi']['Cena']
+                logger.info('aggiornamento dati cena')
+            else:
+                logger.warning('impossibile aggiornare')
+                return 0
+        for i in json_data:
+
+            valid_status = db.get_valid(i['nome'])
+
+            if valid_status is None:
+                db.set_name(i['nome'])
+                if i['dieta'] != "":
+                    db.set_dieta(i['nome'], i['dieta'])
+                valid_status = 0
+                logger.info('aggiunto utente non presente nel database: ' + i['nome'])
+            else:
+                valid_status = valid_status[0]
+
+            if valid_status == 0:
+                tray_status = db.get_tray(i['nome'])[0]
+
+                if tray_status == 0 and i['stato'] == 'Vassoio':
+                    db.set_tray(i['nome'], 1)
+                elif tray_status == 1 and i['stato'] != 'Vassoio':
+                    db.set_tray(i['nome'], 0)
+            else:
+                db.set_tray(i['nome'], 0)
+                db.set_done(i['nome'], 0)
+
+        db.set_last_update(datetime.datetime.now().strftime('%d/%m/%y %H:%M'))
+        db.close_connection()
+
+        return 1
+    except:
+        logger.error('impossibile connettersi al database')
+        return 0
+
+
+def reset_db():
+    logger = get_logger('reset_db()')
+    try:
+        db.connect()
+        db.clear_db()
+        db.create_database(TRAY_DB_CREATE_QUERY)
+        db.close_connection()
+        set_res = set_db()
+        if set_res != 0:
+            update_res = db_update()
+            if update_res == 0:
+                logger.warning('impossibile resettare database')
+                return 0
+        else:
+            logger.warning('impossibile resettare database')
+            return 0
+        logger.info('database resettato')
+        return 1
+    except:
+        logger.error('impossibile connettersi al database')
+        return 0
+
+
+def reset_session():
+    logger = get_logger('reset_session()')
+    try:
+        db.connect()
+        name = db.get_all_name()
+
+        for i in name:
+            done_status = db.get_done(i[0])
+
+            if done_status is not None:
+                db.set_tray(i[0], 0)
+                db.set_done(i[0], 0)
+                db.set_valid(i[0], 0)
+        db.close_connection()
+        logger.info('sessione resettata')
+        return 1
+    except:
+        logger.error('impossibile connettersi al database')
+        return 0
+
+
+def create_not_signed_queue():
+    logger = get_logger('create_not_signed_queue()')
+    try:
+        db.connect()
+        queue = db.get_all(1, 0)
+        db.close_connection()
+        return queue
+    except:
+        logger.error('impossibile connettersi al database')
+        return 0
+
+
+def create_signed_queue():
+    logger = get_logger('create_signed_queue()')
+    try:
+        db.connect()
+        queue = db.get_all(1, 1)
+        db.close_connection()
+        return queue
+    except:
+        logger.error('impossibile connettersi al database')
+        return 0
+
+
+def sign_tray(name):
+    logger = get_logger('sign_tray()')
+    try:
+        db.connect()
+        db.set_done(name, 1)
+        db.close_connection()
+    except:
+        logger.error('impossibile connettersi al database')
+        return 0
+
+
+def delete_tray_from_view(name):
+    logger = get_logger('delete_tray_from_view()')
+    try:
+        db.connect()
+        db.set_valid(name, 1)
+        db.close_connection()
+    except:
+        logger.error('impossibile connettersi al database')
+        return 0
+
+
+def verify_internet():
+    logger = get_logger('verify_internet()')
+    try:
+        with urlopen('https://www.google.it'):
+            return True
+    except BaseException as ex:
+        logger.warning('connessione internet assente: ' + str(ex))
+        return False
+
+
+def verify_db():
+    logger = get_logger('verify_db()')
+    try:
+        db.connect().execute("SELECT 1 FROM tray_status LIMIT 1;")
+        db.close_connection()
+        return True
+    except sqlite3.ProgrammingError as e:
+        logger.critical('impossibile connettersi al database ' + str(e))
+        return False
