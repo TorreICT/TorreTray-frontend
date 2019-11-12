@@ -1,4 +1,4 @@
-from back_end.functions import *
+from .functions import *
 from parameters import *
 import schedule
 import time

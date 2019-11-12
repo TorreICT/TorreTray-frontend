@@ -6,7 +6,6 @@ from GUI.windowDialogCancel import Ui_Dialog as Cancel_Dialog
 from GUI.windowLoading import Ui_Dialog as Loading
 from GUI.functions import *
 from parameters import *
-from res.labels import *
 
 
 class Ui_MainWindow(object):
