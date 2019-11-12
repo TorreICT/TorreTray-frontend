@@ -1,4 +1,7 @@
-from .functions import *
+# Decommentare se si vuole runnare singolarmente
+import sys
+sys.path.append("/home/pietro/Documenti/Python/torre_tray_official")
+from functions import *
 from parameters import *
 import schedule
 import time

@@ -2,7 +2,7 @@ import requests
 from database import *
 import datetime
 from urllib.request import urlopen
-from .logger import *
+from logger import *
 import simpleaudio as sa
 import threading
 import os

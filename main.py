@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.append("/home/pietro/Documenti/Python/torre_tray_official")
 from parameters import *
 
 os.system("lxterminal -e 'tmux new-session -s \"torretray_backend\" python3 " + WORKING_DIR_PATH + "back_end/main_be.py' &")
