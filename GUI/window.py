@@ -56,12 +56,11 @@ class Ui_MainWindow(object):
         self.pushButton.setMinimumSize(QtCore.QSize(0, 80))
         self.pushButton.setObjectName("pushButton")
         self.pushButton.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
-        self.verticalLayout.addWidget(self.pushButton)
-        self.pushButton_3 = QtWidgets.QPushButton(self.verticalWidget)
-        self.pushButton_3.setMinimumSize(QtCore.QSize(0, 80))
-        self.pushButton_3.setObjectName("pushButton_3")
-        self.pushButton_3.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
-        self.verticalLayout.addWidget(self.pushButton_3)
+        # self.pushButton_3 = QtWidgets.QPushButton(self.verticalWidget)
+        # self.pushButton_3.setMinimumSize(QtCore.QSize(0, 80))
+        # self.pushButton_3.setObjectName("pushButton_3")
+        # self.pushButton_3.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+        # self.verticalLayout.addWidget(self.pushButton_3)
         self.pushButton_4 = QtWidgets.QPushButton(self.verticalWidget)
         self.pushButton_4.setMinimumSize(QtCore.QSize(0, 80))
         self.pushButton_4.setObjectName("pushButton_4")
@@ -70,6 +69,7 @@ class Ui_MainWindow(object):
         spacerItem = QtWidgets.QSpacerItem(20, 80, QtWidgets.QSizePolicy.Minimum,
                                            QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout.addItem(spacerItem)
+        self.verticalLayout.addWidget(self.pushButton)
 
         self.label_4 = QtWidgets.QLabel(self.verticalWidget)
         self.label_4.setLayoutDirection(QtCore.Qt.LeftToRight)
@@ -118,7 +118,7 @@ class Ui_MainWindow(object):
         # Pressione dei tre pulsanti a destra
         self.pushButton.clicked.connect(self.on_pushbutton1_clicked)
         self.pushButton_2.clicked.connect(self.on_pushbutton2_clicked)
-        self.pushButton_3.clicked.connect(self.on_pushbutton3_clicked)
+        # self.pushButton_3.clicked.connect(self.on_pushbutton3_clicked)
         self.pushButton_4.clicked.connect(self.on_pushbutton4_clicked)
 
         # Refresha tabelle un secondo dopo l'avvio
@@ -329,43 +329,43 @@ class Ui_MainWindow(object):
             logger.info("Pressione tasto 'Annulla' -> Annullamento...")
             self.statusBar.showMessage(STATBAR_PRINT_ABORTED_MES, STATUS_BAR_TIMEOUT)
 
-    def on_pushbutton3_clicked(self):
-        logger = get_logger('on_pushbutton1_clicked()')
-        logger.info("Pressione tasto 'Stampa tutti'")
-        Dialog = QtWidgets.QDialog()
-        Dialog.setModal(True)
-        ui = Print_Dialog()
-        ui.setupUi(Dialog)
-        Dialog.show()
-        QTimer.singleShot(30000, Dialog.reject)
-        response = Dialog.exec_()
-        if response == QtWidgets.QDialog.Accepted:
-            logger.info("Pressione tasto 'Ok' -> Richiesta di stampa")
-            self.statusBar.showMessage(STATBAR_PRINT_REQUEST_MES)
-            signed_queue = create_signed_queue()
-            not_signed_queue = create_not_signed_queue()
-            if len(signed_queue) > 0:
-                queue = signed_queue
-                if len(not_signed_queue) > 0:
-                    queue = queue + not_signed_queue
-            elif len(not_signed_queue) > 0:
-                queue = not_signed_queue
-            else:
-                queue = []
-            if len(queue) > 0:
-                res = start_print_process(queue.copy())
-                if res != 0:
-                    if len(not_signed_queue) > 0:
-                        for i in not_signed_queue:
-                            sign_tray(i[0])
-                    self.statusBar.showMessage(STATBAR_PRINT_SUCCESS_MES, STATUS_BAR_TIMEOUT)
-                    self.init_table_segnati()
-                    self.init_table_non_segnati()
-                else:
-                    self.statusBar.showMessage(STATBAR_PRINT_ERROR_MES)
-        else:
-            logger.info("Pressione tasto 'Annulla' -> Annullamento...")
-            self.statusBar.showMessage(STATBAR_PRINT_ABORTED_MES, STATUS_BAR_TIMEOUT)
+    # def on_pushbutton3_clicked(self):
+    #     logger = get_logger('on_pushbutton1_clicked()')
+    #     logger.info("Pressione tasto 'Stampa tutti'")
+    #     Dialog = QtWidgets.QDialog()
+    #     Dialog.setModal(True)
+    #     ui = Print_Dialog()
+    #     ui.setupUi(Dialog)
+    #     Dialog.show()
+    #     QTimer.singleShot(30000, Dialog.reject)
+    #     response = Dialog.exec_()
+    #     if response == QtWidgets.QDialog.Accepted:
+    #         logger.info("Pressione tasto 'Ok' -> Richiesta di stampa")
+    #         self.statusBar.showMessage(STATBAR_PRINT_REQUEST_MES)
+    #         signed_queue = create_signed_queue()
+    #         not_signed_queue = create_not_signed_queue()
+    #         if len(signed_queue) > 0:
+    #             queue = signed_queue
+    #             if len(not_signed_queue) > 0:
+    #                 queue = queue + not_signed_queue
+    #         elif len(not_signed_queue) > 0:
+    #             queue = not_signed_queue
+    #         else:
+    #             queue = []
+    #         if len(queue) > 0:
+    #             res = start_print_process(queue.copy())
+    #             if res != 0:
+    #                 if len(not_signed_queue) > 0:
+    #                     for i in not_signed_queue:
+    #                         sign_tray(i[0])
+    #                 self.statusBar.showMessage(STATBAR_PRINT_SUCCESS_MES, STATUS_BAR_TIMEOUT)
+    #                 self.init_table_segnati()
+    #                 self.init_table_non_segnati()
+    #             else:
+    #                 self.statusBar.showMessage(STATBAR_PRINT_ERROR_MES)
+    #     else:
+    #         logger.info("Pressione tasto 'Annulla' -> Annullamento...")
+    #         self.statusBar.showMessage(STATBAR_PRINT_ABORTED_MES, STATUS_BAR_TIMEOUT)
 
     def on_pushbutton4_clicked(self):
         Dialog = QtWidgets.QDialog()
@@ -412,9 +412,9 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         self.label.setText(_translate("MainWindow", "Comandi:"))
-        self.pushButton.setText(_translate("MainWindow", "Stampa segnati"))
-        self.pushButton_2.setText(_translate("MainWindow", "Stampa non segnati"))
-        self.pushButton_3.setText(_translate("MainWindow", "Stampa tutti"))
+        self.pushButton.setText(_translate("MainWindow", "Ristampa"))
+        self.pushButton_2.setText(_translate("MainWindow", "Stampa"))
+        # self.pushButton_3.setText(_translate("MainWindow", "Stampa tutti"))
         self.pushButton_4.setText(_translate("MainWindow", "Aggiorna"))
         self.label_2.setText(_translate("MainWindow", "Vassoi da stampare:"))
         self.label_3.setText(_translate("MainWindow", "Vassoi stampati:"))
