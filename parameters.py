@@ -22,7 +22,7 @@ URL = 'https://mycollegeapp.rui.it/jsonapi?residenza=dG9ycmVzY2FsbGE-'
 URL_PARAM = 'data'
 
 LUNCH_START_TIME = "12:45"
-LAST_LUNCH_UPDATE_TIME = "13:31"
+LAST_LUNCH_UPDATE_TIME = "13:21"
 LUNCH_END_TIME = "14:30"
 DINNER_START_TIME = "20:00"
 LAST_DINNER_UPDATE_TIME = "20:21"
