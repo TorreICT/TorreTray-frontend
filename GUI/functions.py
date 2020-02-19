@@ -130,9 +130,13 @@ def get_registro_pasti():
         params = [(URL_PARAM, datetime.datetime.now().date())]
         response = requests.get(URL, params=params)
         data = response.json()
-        # Correzione del nome di Gabriele Munafò
-        data["nomi"]["Pranzo"][46]["nome"] = data["nomi"]["Pranzo"][46]["nome"].replace("o&#039;", "ò")
-        data["nomi"]["Cena"][46]["nome"] = data["nomi"]["Cena"][46]["nome"].replace("o&#039;", "ò")
+        # Correzione dei nomi in Mycollege su database
+        for i in data["nomi"]["Pranzo"]:
+            i["nome"] = i["nome"].replace("&agrave;", "à")
+            i["nome"] = i["nome"].replace("o&#039;", "ò")
+        for i in data["nomi"]["Cena"]:
+            i["nome"] = i["nome"].replace("&agrave;", "à")
+            i["nome"] = i["nome"].replace("o&#039;", "ò")
         return data
     except:
         logger.error('impossibile fare il get del json')
