@@ -12,12 +12,15 @@ schedule.every().day.at(LUNCH_END_TIME).do(reset_session)
 schedule.every().day.at("00:01").do(reset_session)
 schedule.every().day.at("00:02").do(reboot_sys)
 
-schedule.every().day.at("13:15").do(run_play_sound)
+schedule.every().day.at(LUNCH_START_TIME).do(run_play_sound)
+schedule.every().day.at("12:55").do(run_play_sound)
 schedule.every().day.at(LAST_LUNCH_UPDATE_TIME).do(run_play_sound)
-schedule.every().day.at("20:15").do(run_play_sound)
+
+schedule.every().day.at(DINNER_START_TIME).do(run_play_sound)
+schedule.every().day.at("19:40").do(run_play_sound)
 schedule.every().day.at(LAST_DINNER_UPDATE_TIME).do(run_play_sound)
-schedule.every().saturday.at("13:21").do(run_play_sound)
-schedule.every().sunday.at("13:21").do(run_play_sound)
+#schedule.every().saturday.at("13:21").do(run_play_sound)
+#schedule.every().sunday.at("13:21").do(run_play_sound)
 
 schedule.every().monday.at(DB_RESET_TIME).do(reset_db)
 

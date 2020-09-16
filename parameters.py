@@ -22,12 +22,18 @@ URL = 'https://mycollegeapp.rui.it/jsonapi?residenza=dG9ycmVzY2FsbGE-'
 URL_PARAM = 'data'
 
 LUNCH_START_TIME = "12:45"
-LAST_LUNCH_UPDATE_TIME = "13:21"
-LUNCH_END_TIME = "14:30"
-DINNER_START_TIME = "20:00"
-LAST_DINNER_UPDATE_TIME = "20:21"
-DINNER_END_TIME = "21:00"
+# Per calcolare l'orario seguente sottrarre a LUNCH_END_TIME il DELTA_VASSOI (settato su mycollege) + 1 minuto
+LAST_LUNCH_UPDATE_TIME = "13:36"
+LUNCH_END_TIME = "14:15"
+LUNCH_RESET = "14:30"
 
+DINNER_START_TIME = "19:30"
+# Per calcolare l'orario seguente sottrarre a DINNER_END_TIME il DELTA_VASSOI (settato su mycollege) + 1 minuto
+LAST_DINNER_UPDATE_TIME = "20:26"
+DINNER_END_TIME = "21:05"
+DINNER_RESET = "21:15"
+
+DELTA_VASSOI = "00:40"
 UPDATE_INTERVAL_MINUTES = "2"
 
 DB_RESET_TIME = "02:00"
