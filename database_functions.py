@@ -6,7 +6,7 @@ from logger import *
 class Database:
 
     def __init__(self, db_filename):
-        logger = get_logger('create_signed_queue()')
+        # logger = get_logger('create_signed_queue()')
         self.db_filename = db_filename
 
         if os.path.exists(self.db_filename):
