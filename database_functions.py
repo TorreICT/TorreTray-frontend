@@ -1,6 +1,6 @@
 import sqlite3
 import os
-from logger import *
+from back_end.logger import *
 
 
 class Database:

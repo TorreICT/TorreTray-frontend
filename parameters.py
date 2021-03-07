@@ -1,6 +1,10 @@
-from local import *
+# Madonna che parto sti percorsi locali! La linea 'from local import *' è stata aggiunta da Pietro e non si riferisce ad una libreria ma un file locale ignorato da git che serve solo per definire la variabile LOCALE_WORKING_DIR_PATH. Adesso abbiamo aggiustato e funziona indipendentamente dalla directory di sviluppo
+# from local import *
+
+import os
+
 # ############ PATHS ##############
-WORKING_DIR_PATH = LOCALE_WORKING_DIR_PATH
+WORKING_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 IMG_DIR_PATH = WORKING_DIR_PATH + 'res/img/'
 DB_FILE_PATH = WORKING_DIR_PATH + 'database_tray.db'
 
