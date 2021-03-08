@@ -1,6 +1,3 @@
-import sys
-sys.path.append("/home/pi/torre_tray_official")
-
-from window import *
+from GUI.window import *
 
 runGUI()

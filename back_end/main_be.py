@@ -1,7 +1,5 @@
 # Decommentare se si vuole runnare singolarmente
-import sys
-# sys.path.append("/home/pi/torre_tray_official")
-from functions import *
+from back_end.functions import *
 from parameters import *
 import schedule
 import time
