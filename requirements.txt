@@ -1,2 +1,6 @@
 python-escpos==2.2.0
 loggerpy==1.1
+jsonschema
+requests
+schedule
+simpleaudio
