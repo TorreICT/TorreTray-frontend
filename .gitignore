@@ -1,4 +1,5 @@
 __pycache__/
+pyenv/
 *.pyc
 database_tray.db
 GUI/logs/
@@ -8,3 +9,4 @@ res/__pychache__/
 back_end/__pycache__/
 GUI/__pycache__/
 local.py
+.vscode/
