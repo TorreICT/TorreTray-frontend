@@ -1,8 +1,11 @@
-from local import *
+import os
+
 # ############ PATHS ##############
-WORKING_DIR_PATH = LOCALE_WORKING_DIR_PATH
-IMG_DIR_PATH = WORKING_DIR_PATH + 'res/img/'
-DB_FILE_PATH = WORKING_DIR_PATH + 'database_tray.db'
+# Set up root project folder OS independent
+WORKING_DIR_PATH = os.path.dirname(os.path.abspath(__file__)) # Project root
+
+IMG_DIR_PATH = os.path.join(WORKING_DIR_PATH, 'res','img')
+DB_FILE_PATH = os.path.join(WORKING_DIR_PATH, 'database_tray.db')
 
 # ############ DATABASE ##############
 TRAY_DB_CREATE_QUERY = """CREATE TABLE IF NOT EXISTS "tray_status" (
