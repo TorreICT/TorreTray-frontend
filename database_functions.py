@@ -1,6 +1,6 @@
 import sqlite3
 import os
-from logger import *
+from GUI.logger import *
 
 
 class Database:

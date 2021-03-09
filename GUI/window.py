@@ -1,10 +1,10 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtSql import *
 from PyQt5.QtCore import *
-from windowDialogPrint import Ui_Dialog as Print_Dialog
-from windowDialogCancel import Ui_Dialog as Cancel_Dialog
-from windowLoading import Ui_Dialog as Loading
-from functions import *
+from GUI.windowDialogPrint import Ui_Dialog as Print_Dialog
+from GUI.windowDialogCancel import Ui_Dialog as Cancel_Dialog
+from GUI.windowLoading import Ui_Dialog as Loading
+from GUI.functions import *
 from parameters import *
 from res.labels import *
 
