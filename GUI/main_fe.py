@@ -1,5 +1,7 @@
 import sys
-# sys.path.append("/home/pi/torre_tray_official")
-from GUI.window import runGUI
+if len(sys.argv) > 1:
+	sys.path.append(sys.argv[1])
+	print(sys.argv[1])
 
+from GUI.window import *
 runGUI()
