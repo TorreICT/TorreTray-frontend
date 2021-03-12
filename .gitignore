@@ -10,3 +10,4 @@ back_end/__pycache__/
 GUI/__pycache__/
 local.py
 .vscode/
+core
