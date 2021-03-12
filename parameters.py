@@ -2,9 +2,9 @@ import os
 
 # ############ PATHS ##############
 # Set up root project folder OS independent
-WORKING_DIR_PATH = os.path.dirname(os.path.abspath(__file__)) # Project root
+WORKING_DIR_PATH = os.path.dirname(os.path.abspath(__file__))  # Project root
 
-IMG_DIR_PATH = os.path.join(WORKING_DIR_PATH, 'res','img')
+IMG_DIR_PATH = os.path.join(WORKING_DIR_PATH, 'res', 'img')
 DB_FILE_PATH = os.path.join(WORKING_DIR_PATH, 'database_tray.db')
 
 # ############ DATABASE ##############
