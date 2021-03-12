@@ -21,8 +21,8 @@ Gestione e stampa dei ticket vassoi
   - [x] Definire le librerie effettivamente utilizzate
   - [ ] Scrivere documentazione partendo da come è strutturato il progetto. Struttura BE+FE e organizzazione database.
 - [x] Avviare Front End e Back End come processi distinti dal main ed in parallelo
-- [ ] Risolvere problemi con loggerpy
+- [x] Risolvere problemi con loggerpy
   - [x] File di log creati incorrettamente
-  - [ ] Ripulire i log più vecchi di una settimana
+  - [x] Ripulire i log più vecchi di una settimana
 - [ ] Aggiungere modifica dei parametri da GUI
 - [ ] Modalità turno singolo
