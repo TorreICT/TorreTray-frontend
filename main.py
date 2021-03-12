@@ -23,9 +23,16 @@ def keyboardInterruptHandler(signal, frame):
 signal.signal(signal.SIGINT, keyboardInterruptHandler)
 signal.signal(signal.SIGTERM, keyboardInterruptHandler)
 
-p1 = subprocess.Popen(['python3', WORKING_DIR_PATH + '/GUI/main_fe.py',
-                       WORKING_DIR_PATH])
-p2 = subprocess.Popen(['python3', WORKING_DIR_PATH + '/back_end/main_be.py',
-                       WORKING_DIR_PATH])
+
+if os.path.exists('pyenv'):
+    p1 = subprocess.Popen(['pyenv/Scripts/python', WORKING_DIR_PATH + '/GUI/main_fe.py',
+                        WORKING_DIR_PATH])
+    p2 = subprocess.Popen(['pyenv/Scripts/python', WORKING_DIR_PATH + '/back_end/main_be.py',
+                        WORKING_DIR_PATH])
+else:
+    p1 = subprocess.Popen(['python3', WORKING_DIR_PATH + '/GUI/main_fe.py',
+                        WORKING_DIR_PATH])
+    p2 = subprocess.Popen(['python3', WORKING_DIR_PATH + '/back_end/main_be.py',
+                        WORKING_DIR_PATH])
 while True:
     pass
