@@ -1,12 +1,13 @@
 import requests
-from database import *
 import datetime
 from urllib.request import urlopen
-from logger import *
+from back_end.logger import *
+from database import *
 import simpleaudio as sa
 import threading
 import os
 import time
+
 
 def reboot_sys():
     logger = get_logger('reboot_sys()')
@@ -16,15 +17,17 @@ def reboot_sys():
 
 
 def play_sound():
-    wave_obj = sa.WaveObject.from_wave_file(WORKING_DIR_PATH + 'res/glass_ping.wav')
+    wave_obj = sa.WaveObject.from_wave_file(
+        WORKING_DIR_PATH + '/res/glass_ping.wav')
     play_obj = wave_obj.play()
     play_obj.wait_done()
 
 
 def run_play_sound():
-    logger = get_logger('run_palay_sound()')
+    logger = get_logger('run_play_sound()')
     if len(create_not_signed_queue()) != 0:
         try:
+            logger.info("Campanella")
             threading.Thread(target=play_sound).start()
         except:
             logger.error('impossibile spawnare il thread del suono')
@@ -36,10 +39,13 @@ def create_scheduler_time():
     lunch_start_time = datetime.datetime.strptime(LUNCH_START_TIME, '%H:%M')
     dinner_start_time = datetime.datetime.strptime(DINNER_START_TIME, '%H:%M')
 
-    max_lunch_sched = datetime.datetime.strptime(LAST_LUNCH_UPDATE_TIME, '%H:%M')
-    max_dinner_sched = datetime.datetime.strptime(LAST_DINNER_UPDATE_TIME, '%H:%M')
+    max_lunch_sched = datetime.datetime.strptime(
+        LAST_LUNCH_UPDATE_TIME, '%H:%M')
+    max_dinner_sched = datetime.datetime.strptime(
+        LAST_DINNER_UPDATE_TIME, '%H:%M')
 
-    update_interval = datetime.datetime.strptime(UPDATE_INTERVAL_MINUTES, '%M').minute
+    update_interval = datetime.datetime.strptime(
+        UPDATE_INTERVAL_MINUTES, '%M').minute
 
     i = lunch_start_time + datetime.timedelta(
         minutes=update_interval)
@@ -127,7 +133,8 @@ def db_update():
                 if i['dieta'] != "":
                     db.set_dieta(i['nome'], i['dieta'])
                 valid_status = 0
-                logger.info('aggiunto utente non presente nel database: ' + i['nome'])
+                logger.info(
+                    'aggiunto utente non presente nel database: ' + i['nome'])
             else:
                 valid_status = valid_status[0]
 

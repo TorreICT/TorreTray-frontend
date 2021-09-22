@@ -1,7 +1,9 @@
 # Decommentare se si vuole runnare singolarmente
 import sys
-sys.path.append("/home/pi/torre_tray_official")
-from functions import *
+if len(sys.argv) > 1:
+    sys.path.append(sys.argv[1])
+
+from back_end.functions import *
 from parameters import *
 import schedule
 import time
@@ -21,8 +23,8 @@ schedule.every().day.at(DINNER_START_TIME).do(run_play_sound)
 schedule.every().day.at("19:40").do(run_play_sound)
 schedule.every().day.at("20:31").do(run_play_sound)
 schedule.every().day.at(LAST_DINNER_UPDATE_TIME).do(run_play_sound)
-#schedule.every().saturday.at("13:21").do(run_play_sound)
-#schedule.every().sunday.at("13:21").do(run_play_sound)
+# schedule.every().saturday.at("13:21").do(run_play_sound)
+# schedule.every().sunday.at("13:21").do(run_play_sound)
 
 schedule.every().monday.at(DB_RESET_TIME).do(reset_db)
 

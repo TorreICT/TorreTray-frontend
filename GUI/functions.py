@@ -1,9 +1,10 @@
 import requests
 from escpos.printer import Usb
 from jsonschema.compat import urlopen
-from logger import *
+from GUI.logger import *
 from database import *
 import time
+
 
 def create_not_signed_queue():
     logger = get_logger('create_not_signed_queue()')
@@ -15,6 +16,7 @@ def create_not_signed_queue():
     except:
         logger.error('impossibile connettersi al database')
         return 0
+
 
 def create_signed_queue():
     logger = get_logger('create_signed_queue()')
@@ -49,6 +51,7 @@ def delete_tray_from_view(name):
         logger.error('impossibile connettersi al database')
         return 0
 
+
 def verify_internet():
     logger = get_logger('verify_internet()')
     try:
@@ -57,8 +60,6 @@ def verify_internet():
     except BaseException as ex:
         logger.warning('connessione internet assente: ' + str(ex))
         return False
-
-
 
 
 def verify_db():
@@ -70,6 +71,7 @@ def verify_db():
     except sqlite3.ProgrammingError as e:
         logger.critical('impossibile connettersi al database ' + str(e))
         return False
+
 
 def db_update():
     logger = get_logger('db_update()')
@@ -101,7 +103,8 @@ def db_update():
                 if i['dieta'] != "":
                     db.set_dieta(i['nome'], i['dieta'])
                 valid_status = 0
-                logger.info('aggiunto utente non presente nel database: ' + i['nome'])
+                logger.info(
+                    'aggiunto utente non presente nel database: ' + i['nome'])
             else:
                 valid_status = valid_status[0]
 
@@ -124,6 +127,7 @@ def db_update():
         logger.error('impossibile connettersi al database')
         return 0
 
+
 def get_registro_pasti():
     logger = get_logger('get_registro_pasti()')
     try:
@@ -142,6 +146,7 @@ def get_registro_pasti():
         logger.error('impossibile fare il get del json')
         return 0
 
+
 def start_print_process(print_queque):
     logger = get_logger('start_print_process()')
     try:
@@ -155,8 +160,10 @@ def start_print_process(print_queque):
                 p.text('Vassoi Torrescalla\n\n\n')
                 p.set(height=1, width=1, align='left')
                 time.sleep(0.1)
-                p.text('    Data: ' + datetime.datetime.now().strftime('%d/%m/%y') + '\n')
-                p.text('    Ora: ' + datetime.datetime.now().time().strftime('%H:%M') + '\n\n\n')
+                p.text('    Data: ' +
+                       datetime.datetime.now().strftime('%d/%m/%y') + '\n')
+                p.text(
+                    '    Ora: ' + datetime.datetime.now().time().strftime('%H:%M') + '\n\n\n')
                 p.set(height=2, width=2, align='center')
                 time.sleep(0.1)
                 p.text(print_queque[0][0] + '\n')
