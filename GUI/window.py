@@ -1,3 +1,5 @@
+import os.path
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtSql import *
 from PyQt5.QtCore import *
@@ -227,7 +229,7 @@ class Ui_MainWindow(object):
         tablePushButtonPrint.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
         tablePushButtonPrint.setText("")
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(IMG_DIR_PATH + "printer.png"),
+        icon.addPixmap(QtGui.QPixmap(os.path.join(IMG_DIR_PATH, "printer.png")),
                        QtGui.QIcon.Normal, QtGui.QIcon.Off)
         tablePushButtonPrint.setIcon(icon)
         tablePushButtonPrint.clicked.connect(lambda: self.on_tablePushButtonPrint_clicked(name, dieta))
@@ -238,7 +240,7 @@ class Ui_MainWindow(object):
         tablePushButtonCancel.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
         tablePushButtonCancel.setText("")
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(IMG_DIR_PATH + "cancel.png"),
+        icon.addPixmap(QtGui.QPixmap(os.path.join(IMG_DIR_PATH, "cancel.png")),
                        QtGui.QIcon.Normal, QtGui.QIcon.Off)
         tablePushButtonCancel.setIcon(icon)
         tablePushButtonCancel.clicked.connect(lambda: self.on_tablePushButtonCancel_clicked(name))
