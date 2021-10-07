@@ -139,10 +139,12 @@ def get_registro_pasti():
             i["nome"] = i["nome"].replace("&agrave;", "à")
             i["nome"] = i["nome"].replace("o&#039;", "ò")
             i["nome"] = i["nome"].replace("&atilde;", "a")
+            i["nome"] = i["nome"].replace("ã", "a")
         for i in data["nomi"]["Cena"]:
             i["nome"] = i["nome"].replace("&agrave;", "à")
             i["nome"] = i["nome"].replace("o&#039;", "ò")
             i["nome"] = i["nome"].replace("&atilde;", "a")
+            i["nome"] = i["nome"].replace("ã", "a")
         return data
     except:
         logger.error('impossibile fare il get del json')
