@@ -137,10 +137,12 @@ def get_registro_pasti():
         # Correzione dei nomi in Mycollege su database
         for i in data["nomi"]["Pranzo"]:
             i["nome"] = i["nome"].replace("&agrave;", "à")
+            i["nome"] = i["nome"].replace("ã", "a")
             i["nome"] = i["nome"].replace("o&#039;", "ò")
             i["nome"] = i["nome"].replace("&atilde;", "a")
         for i in data["nomi"]["Cena"]:
             i["nome"] = i["nome"].replace("&agrave;", "à")
+            i["nome"] = i["nome"].replace("ã", "a")
             i["nome"] = i["nome"].replace("o&#039;", "ò")
             i["nome"] = i["nome"].replace("&atilde;", "a")
         return data
@@ -157,7 +159,7 @@ def start_print_process(print_queque):
         if print_queque:
             for i in range(0, len(print_queque)):
                 p.set(height=2, width=2, align='center')
-                p.image(IMG_DIR_PATH + 'logo-torre-mono-medium.png')
+                p.image(IMG_DIR_PATH + '/logo-torre-mono-medium.png')
                 time.sleep(0.1)
                 p.text('Vassoi Torrescalla\n\n\n')
                 p.set(height=1, width=1, align='left')
@@ -177,6 +179,7 @@ def start_print_process(print_queque):
                 p.cut()
                 print_queque.pop(0)
                 time.sleep(0.3)
-    except:
+    except Exception as e:
+        print(e)
         logger.error('impossibile connettersi alla stampante')
         return 0

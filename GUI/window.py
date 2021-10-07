@@ -25,7 +25,7 @@ class Ui_MainWindow(object):
         MainWindow.setMouseTracking(False)
         MainWindow.setWindowTitle("Vassoi Torrescalla")
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(IMG_DIR_PATH + "logo-torre.png"),
+        icon.addPixmap(QtGui.QPixmap(os.path.join(IMG_DIR_PATH, 'logo-torre.png')),
                        QtGui.QIcon.Normal, QtGui.QIcon.Off)
         MainWindow.setWindowIcon(icon)
         MainWindow.setAnimated(True)
@@ -76,7 +76,7 @@ class Ui_MainWindow(object):
         self.label_4 = QtWidgets.QLabel(self.verticalWidget)
         self.label_4.setLayoutDirection(QtCore.Qt.LeftToRight)
         self.label_4.setText("")
-        self.label_4.setPixmap(QtGui.QPixmap(IMG_DIR_PATH + "logo-torre-small.png"))
+        self.label_4.setPixmap(QtGui.QPixmap(os.path.join(IMG_DIR_PATH, 'logo-torre-small.png')))
         self.label_4.setScaledContents(False)
         self.label_4.setAlignment(QtCore.Qt.AlignCenter)
         self.label_4.setObjectName("label_4")
@@ -229,7 +229,7 @@ class Ui_MainWindow(object):
         tablePushButtonPrint.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
         tablePushButtonPrint.setText("")
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(os.path.join(IMG_DIR_PATH, "printer.png")),
+        icon.addPixmap(QtGui.QPixmap(os.path.join(IMG_DIR_PATH, 'printer.png')),
                        QtGui.QIcon.Normal, QtGui.QIcon.Off)
         tablePushButtonPrint.setIcon(icon)
         tablePushButtonPrint.clicked.connect(lambda: self.on_tablePushButtonPrint_clicked(name, dieta))
@@ -240,7 +240,7 @@ class Ui_MainWindow(object):
         tablePushButtonCancel.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
         tablePushButtonCancel.setText("")
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(os.path.join(IMG_DIR_PATH, "cancel.png")),
+        icon.addPixmap(QtGui.QPixmap(os.path.join(IMG_DIR_PATH, 'cancel.png')),
                        QtGui.QIcon.Normal, QtGui.QIcon.Off)
         tablePushButtonCancel.setIcon(icon)
         tablePushButtonCancel.clicked.connect(lambda: self.on_tablePushButtonCancel_clicked(name))

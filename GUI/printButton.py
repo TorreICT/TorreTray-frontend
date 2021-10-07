@@ -12,7 +12,7 @@ class Ui_Form(object):
         self.pushButton.setGeometry(QtCore.QRect(120, 170, 101, 34))
         self.pushButton.setText("")
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(os.path.join(IMG_DIR_PATH, "printer.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(os.path.join(IMG_DIR_PATH, 'printer.png')), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.pushButton.setIcon(icon)
         self.pushButton.setObjectName("pushButton")
 
