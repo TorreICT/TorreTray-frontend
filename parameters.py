@@ -25,12 +25,13 @@ URL = 'https://mycollegeapp.rui.it/jsonapi?residenza=dG9ycmVzY2FsbGE-'
 URL_PARAM = 'data'
 
 LUNCH_START_TIME = "12:45"
-LAST_LUNCH_UPDATE_TIME = "13:20" # Ultimo refresh (si consiglia di lasciare 5 minuti di margine rispetto all'orario di MyCollege)
+LAST_LUNCH_UPDATE_TIME = "13:25" # Ultimo refresh (si consiglia di lasciare 5 minuti di margine rispetto all'orario di MyCollege)
 LUNCH_END_TIME = "14:30" # Da qui in poi prendo i vassoi per la cena
 
 DINNER_START_TIME = "20:00"
-LAST_DINNER_UPDATE_TIME = "20:35" # Ultimo refresh (si consiglia di lasciare 5 minuti di margine rispetto all'orario di MyCollege)
+LAST_DINNER_UPDATE_TIME = "20:25" # Ultimo refresh (si consiglia di lasciare 5 minuti di margine rispetto all'orario di MyCollege)
 
+DELTA_VASSOI = "00:40"
 
 UPDATE_INTERVAL_MINUTES = "2"
 
