@@ -11,3 +11,5 @@ GUI/__pycache__/
 local.py
 .vscode/
 core
+
+parameter.py
