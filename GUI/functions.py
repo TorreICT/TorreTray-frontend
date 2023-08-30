@@ -111,9 +111,9 @@ def db_update():
             if valid_status == 0:
                 tray_status = db.get_tray(i['nome'])[0]
 
-                if tray_status == 0 and i['stato'] == 'Vassoio':
+                if tray_status == 0 and i['stato'] == 'vassoio':
                     db.set_tray(i['nome'], 1)
-                elif tray_status == 1 and i['stato'] != 'Vassoio':
+                elif tray_status == 1 and i['stato'] != 'vassoio':
                     db.set_tray(i['nome'], 0)
             else:
                 db.set_tray(i['nome'], 0)
