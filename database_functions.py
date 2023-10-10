@@ -84,6 +84,23 @@ class Database:
             return curs.fetchone()
         except:
             raise
+    
+    def set_packed(self, name, status):
+        query = """UPDATE tray_status SET packed=? WHERE name=?;"""
+        try:
+            self.db_conn.cursor().execute(query, (status, name))
+            self.db_conn.commit()
+        except:
+            raise
+
+    def get_packed(self, name):
+        query = """SELECT packed FROM tray_status WHERE name=?;"""
+        try:
+            curs = self.db_conn.cursor()
+            curs.execute(query, (name,))
+            return curs.fetchone()
+        except:
+            raise
 
     def get_all(self, tray, done):
         query = """SELECT name,diet FROM tray_status WHERE tray=? AND done=? AND valid=0;"""
