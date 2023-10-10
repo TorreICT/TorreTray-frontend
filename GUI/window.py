@@ -1,4 +1,5 @@
 import os.path
+import datetime
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtSql import *
@@ -145,84 +146,159 @@ class Ui_MainWindow(object):
         # print("Numero massimo di threads -> %d" % self.threadpool.maxThreadCount
         #       ())
 
+    # Mostra a schermo i vassoi/schiscette segnati
+    #
+    # Un vassoio è "segnato" se era presente (tray=1) ed è stato stampato (done=1)
+    #
+    # Il codice sceglie la query da effettuare in base all'orario corrente. Se siamo tra le 6:00 e le 9:00
+    # sceglierà la query 'SELECT_SIGNED_PACKED_QUERY', altrimenti 'SELECT_SIGNED_TRAYS_QUERY'
     def init_table_segnati(self):
+        # Verifica se la connessione al database è valida
         if verify_db() is False:
+            # Se la verifica fallisce, mostra un messaggio di errore sulla barra di stato
             self.statusBar.showMessage(STATBAR_DB_CONN_ERROR_MES)
         else:
+            # Ottiene un riferimento alla connessione al database
             self.QSql_db = QSqlDatabase.database("database tray")
+            
+            # Ottiene l'ora corrente, check per capire se stampare vassoi o schiscette 
+            current_time = datetime.datetime.now().time()
+            
+            # Determina se è tra le 6:00 e le 9:00, check solo la mattina
+            if datetime.time(6, 0) <= current_time <= datetime.time(9, 0):
+                query_to_use = SELECT_SIGNED_PACKED_QUERY
+            else:
+                query_to_use = SELECT_SIGNED_TRAYS_QUERY
+            
+            # Crea un modello per la visualizzazione dei dati
             self.model = QSqlQueryModel()
-            self.model.setQuery(SELECT_SIGNED_TRAYS_QUERY, self.QSql_db)
+            self.model.setQuery(query_to_use, self.QSql_db)
+            
+            # Collega il modello alla visualizzazione della tabella
             self.tableView.setModel(self.model)
+            
+            # Imposta la dimensione del font nella tabella
             self.tableView.setFont(QtGui.QFont(FONT, FONT_SIZE))
+            
+            # Disabilita il pulsante nell'angolo della tabella
             self.tableView.setCornerButtonEnabled(False)
-            self.tableView.setStyleSheet("QHeaderView {background-color: transparent;}")
+            
+            # Imposta lo stile della barra di scorrimento verticale
             self.tableView.setStyleSheet("QScrollBar:vertical { width: 35px; }")
+            
+            # Imposta la modalità di selezione della tabella
             self.tableView.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+            
+            # Imposta la politica di focus della tabella
             self.tableView.setFocusPolicy(Qt.NoFocus)
-            # Print all buttons in list
+            
+            # Aggiunge pulsanti alla tabella per ogni riga
             for i in range(0, self.model.rowCount()):
                 if self.model.record(i).value("name") is not None:
                     self.tableView.setIndexWidget(self.model.index(i, 2),
-                                                  self.PrintPushButton(self.model.record(i).value("name"),
-                                                                       self.model.record(i).value("diet")))
+                                                self.PrintPushButton(self.model.record(i).value("name"),
+                                                                    self.model.record(i).value("diet")))
                     self.tableView.setRowHeight(i, 50)
+            
+            # Imposta i titoli delle colonne
             self.model.setHeaderData(0, Qt.Horizontal, "Nome")
             self.model.setHeaderData(1, Qt.Horizontal, "Dieta")
             self.model.setHeaderData(2, Qt.Horizontal, "")
             self.model.setHeaderData(3, Qt.Horizontal, "")
+            
+            # Imposta la larghezza delle colonne
             self.tableView.setColumnWidth(0, 455)
             self.tableView.setColumnWidth(1, 455)
             self.tableView.setColumnWidth(2, 90)
+            
+            # Nasconde alcune colonne
             self.tableView.hideColumn(3)
             self.tableView.hideColumn(4)
+            
+            # Chiude la connessione al database
             self.QSql_db.close()
 
+
+    # Mostra a schermo i vassoi/schiscette non segnati
+    #
+    # Un vassoio/schiscetta è "non segnato" se era presente (tray=1) ed NON è stato stampato (done=0)
+    #
+    # Il codice sceglie la query da effettuare in base all'orario corrente. Se siamo tra le 6:00 e le 9:00
+    # sceglierà la query 'SELECT_NOT_SIGNED_PACKED_QUERY', altrimenti 'SELECT_NOT_SIGNED_TRAYS_QUERY'
     def init_table_non_segnati(self):
+        # Verifica se la connessione al database è valida
         if verify_db() is False:
+            # Se la verifica fallisce, mostra un messaggio di errore sulla barra di stato
             self.statusBar.showMessage(STATBAR_DB_CONN_ERROR_MES)
         else:
+            # Ottiene un riferimento alla connessione al database
             self.QSql_db = QSqlDatabase.database("database tray")
+            
+            # Ottiene l'ora corrente
+            current_time = datetime.datetime.now().time()
+            
+            # Determina se è tra le 6:00 e le 9:00
+            if datetime.time(6, 0) <= current_time <= datetime.time(9, 0):
+                query_to_use = SELECT_NOT_SIGNED_PACKED_QUERY
+            else:
+                query_to_use = SELECT_NOT_SIGNED_TRAYS_QUERY
+            
+            # Crea un modello per la visualizzazione dei dati con la query selezionata
             self.model = QSqlQueryModel()
-            self.model.setQuery(SELECT_NOT_SIGNED_TRAYS_QUERY, self.QSql_db)
+            self.model.setQuery(query_to_use, self.QSql_db)
+            
+            # Collega il modello alla visualizzazione della tabella
             self.tableView_2.setModel(self.model)
+            
+            # Imposta la dimensione del font nella tabella
             self.tableView_2.setFont(QtGui.QFont(FONT, FONT_SIZE))
+            
+            # Disabilita il pulsante nell'angolo della tabella
             self.tableView_2.setCornerButtonEnabled(False)
-            self.tableView_2.setStyleSheet("QHeaderView {background-color: transparent;}")
+            
+            # Imposta lo stile della barra di scorrimento verticale
             self.tableView_2.setStyleSheet("QScrollBar:vertical { width: 35px; }")
+            
+            # Imposta la modalità di selezione della tabella
             self.tableView_2.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+            
+            # Imposta la politica di focus della tabella
             self.tableView_2.setFocusPolicy(Qt.NoFocus)
-            # Print all buttons in list
+            
+            # Aggiunge pulsanti alla tabella per ogni riga (Print Button)
             for i in range(0, self.model.rowCount()):
                 if self.model.record(i).value("name") is not None:
                     self.tableView_2.setIndexWidget(self.model.index(i, 2),
                                                     self.PrintPushButton(self.model.record(i).value("name"),
-                                                                         self.model.record(i).value("diet")))
+                                                                        self.model.record(i).value("diet")))
                     self.tableView_2.setRowHeight(i, 50)
+            
+            # Aggiunge pulsanti alla tabella per ogni riga (Cancel Button)
             for i in range(0, self.model.rowCount()):
                 if self.model.record(i).value("name") is not None:
                     self.tableView_2.setIndexWidget(self.model.index(i, 3),
                                                     self.CancelPushButton(self.model.record(i).value("name")))
                     self.tableView_2.setRowHeight(i, 50)
-            #            ______________________________________________________
-            #           /    Nome   |     Dieta     |      |      |            \
-            #           |¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯|
-            #           |______________________________________________________|
-            #           |           |               |      |      |            |
-            #           | Tizio     |  Vegetariano  |  🖨  |   ✘  |            |
-            #           |___________|_______________|______|______|____________|
-            #           |                                                      |
-            #           \______________________________________________________/
+            
+            # Imposta i titoli delle colonne
             self.model.setHeaderData(0, Qt.Horizontal, "Nome")
             self.model.setHeaderData(1, Qt.Horizontal, "Dieta")
             self.model.setHeaderData(2, Qt.Horizontal, "")
             self.model.setHeaderData(3, Qt.Horizontal, "")
+            
+            # Imposta la larghezza delle colonne
             self.tableView_2.setColumnWidth(0, 410)
             self.tableView_2.setColumnWidth(1, 410)
             self.tableView_2.setColumnWidth(2, 90)
             self.tableView_2.setColumnWidth(3, 90)
+            
+            # Nasconde alcune colonne
             self.tableView_2.hideColumn(4)
             self.tableView_2.hideColumn(5)
+            
+            # Chiude la connessione al database
             self.QSql_db.close()
+
 
     def PrintPushButton(self, name, dieta):
         tablePushButtonPrint = QtWidgets.QPushButton()
@@ -446,59 +522,62 @@ class RefreshGUIWorker(QRunnable):
 
     @pyqtSlot()
     def run(self):
+        # Ottieni un logger specifico per il thread RefreshGUIWorker
         logger = get_logger('RefreshGUIWorker thread')
 
-        # Inizializza connessione al database
+        # Inizializza una connessione al database
         QSql_db = QSqlDatabase.addDatabase("QSQLITE", "thread")
         QSql_db.setDatabaseName(DB_FILE_PATH)
-        if not QSql_db.open():
-            raise Exception("Could not open the database")
-
-        # Inizializza tutte le tabelle
-        tabellaNonSegnati = QSqlQueryModel()
-        tabellaNonSegnati.setQuery(SELECT_NOT_SIGNED_TRAYS_QUERY, QSql_db)
-        prevTabellaNonSegnati = QSqlQueryModel()
-        prevTabellaNonSegnati.setQuery(SELECT_NOT_SIGNED_TRAYS_QUERY, QSql_db)
-        tabellaSegnati = QSqlQueryModel()
-        tabellaSegnati.setQuery(SELECT_SIGNED_TRAYS_QUERY, QSql_db)
-        prevTabellaSegnati = QSqlQueryModel()
-        prevTabellaSegnati.setQuery(SELECT_SIGNED_TRAYS_QUERY, QSql_db)
-
-        # Main thread loop
-        while 1:
-            if verify_internet() is False:
-                self.signals.internet_error.emit()
+        
+        try:
+            # Tenta di aprire il database
             if not QSql_db.open():
                 raise Exception("Could not open the database")
 
-            # Reinit tabelle
+            # Inizializza i modelli per le tabelle
+            tabellaNonSegnati = QSqlQueryModel()
             tabellaNonSegnati.setQuery(SELECT_NOT_SIGNED_TRAYS_QUERY, QSql_db)
+            prevTabellaNonSegnati = QSqlQueryModel()
+            prevTabellaNonSegnati.setQuery(SELECT_NOT_SIGNED_TRAYS_QUERY, QSql_db)
+            tabellaSegnati = QSqlQueryModel()
             tabellaSegnati.setQuery(SELECT_SIGNED_TRAYS_QUERY, QSql_db)
+            prevTabellaSegnati = QSqlQueryModel()
+            prevTabellaSegnati.setQuery(SELECT_SIGNED_TRAYS_QUERY, QSql_db)
 
-            # Creazione liste di segnati e non segnati
-            lista_non_segnati = []
-            for i in range(0, tabellaNonSegnati.rowCount()):
-                lista_non_segnati.append(tabellaNonSegnati.record(i).value("name"))
-            prev_lista_non_segnati = []
-            for i in range(0, prevTabellaNonSegnati.rowCount()):
-                prev_lista_non_segnati.append(prevTabellaNonSegnati.record(i).value("name"))
-            lista_segnati = []
-            for i in range(0, tabellaSegnati.rowCount()):
-                lista_segnati.append(tabellaSegnati.record(i).value("name"))
-            prev_lista_segnati = []
-            for i in range(0, prevTabellaSegnati.rowCount()):
-                prev_lista_segnati.append(prevTabellaSegnati.record(i).value("name"))
+            # Loop principale del thread
+            while True:
+                # Verifica la connessione a internet e emetti un segnale in caso di errore
+                if not verify_internet():
+                    self.signals.internet_error.emit()
+                
+                if not QSql_db.open():
+                    raise Exception("Could not open the database")
+                    
+                # Re-inizializza i modelli per le tabelle
+                tabellaNonSegnati.setQuery(SELECT_NOT_SIGNED_TRAYS_QUERY, QSql_db)
+                tabellaSegnati.setQuery(SELECT_SIGNED_TRAYS_QUERY, QSql_db)
 
-            # Controlla se esistono cambiamenti ed emetti un segnale
-            if prev_lista_non_segnati != lista_non_segnati or prev_lista_segnati != lista_segnati:
-                prevTabellaNonSegnati.setQuery(SELECT_NOT_SIGNED_TRAYS_QUERY, QSql_db)
-                prevTabellaSegnati.setQuery(SELECT_SIGNED_TRAYS_QUERY, QSql_db)
-                self.signals.refresh.emit()
-                logger.info("Cambiamento trovato -> Refresh delle tabelle")
+                # Crea liste per i vassoi segnati e non segnati
+                lista_non_segnati = [tabellaNonSegnati.record(i).value("name") for i in range(tabellaNonSegnati.rowCount())]
+                prev_lista_non_segnati = [prevTabellaNonSegnati.record(i).value("name") for i in range(prevTabellaNonSegnati.rowCount())]
+                lista_segnati = [tabellaSegnati.record(i).value("name") for i in range(tabellaSegnati.rowCount())]
+                prev_lista_segnati = [prevTabellaSegnati.record(i).value("name") for i in range(prevTabellaSegnati.rowCount())]
 
-            QSql_db.close()
-            time.sleep(5)
+                # Controlla se ci sono cambiamenti e emetti un segnale in caso positivo
+                if prev_lista_non_segnati != lista_non_segnati or prev_lista_segnati != lista_segnati:
+                    prevTabellaNonSegnati.setQuery(SELECT_NOT_SIGNED_TRAYS_QUERY, QSql_db)
+                    prevTabellaSegnati.setQuery(SELECT_SIGNED_TRAYS_QUERY, QSql_db)
+                    self.signals.refresh.emit()
+                    logger.info("Cambiamento trovato -> Refresh delle tabelle")
 
+                # Chiudi la connessione al database
+                QSql_db.close()
+
+                # Aspetta 5 secondi prima del prossimo ciclo
+                time.sleep(5)
+
+        except Exception as e:
+            logger.exception(f"Errore durante l'esecuzione del thread: {e}")
 
 class MyWorkerSignals(QObject):
     done = pyqtSignal()
