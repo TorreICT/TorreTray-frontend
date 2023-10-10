@@ -5,155 +5,190 @@ from GUI.logger import *
 from database import *
 import time
 
-
+# Function to retrieve the unsigned queue from the database
 def create_not_signed_queue():
+    # Get logger for this function
     logger = get_logger('create_not_signed_queue()')
     try:
-        db.connect()
-        queue = db.get_all(1, 0)
-        db.close_connection()
-        return queue
-    except:
-        logger.error('impossibile connettersi al database')
+        db.connect()  # Connect to the database
+        queue = db.get_all(1, 0)  # Get unsigned queue from database
+        db.close_connection()  # Close database connection
+        return queue  # Return the unsigned queue
+    except Exception as e:
+        logger.error('impossibile connettersi al database: create_not_signed_queue')  # Log error if database connection fails
+        logger.error(e)
         return 0
 
-
+# Function to retrieve the signed queue from the database
 def create_signed_queue():
+    # Get logger for this function
     logger = get_logger('create_signed_queue()')
     try:
-        db.connect()
-        queue = db.get_all(1, 1)
-        db.close_connection()
-        return queue
-    except:
-        logger.error('impossibile connettersi al database')
-        return 0
+        db.connect()  # Connect to the database
+        queue = db.get_all(1, 1)  # Get signed queue from database
+        db.close_connection()  # Close database connection
+        return queue  # Return the signed queue
+    except Exception as e:
+        logger.error('impossibile connettersi al database:create_signed_queue')  # Log error if database connection fails
+        logger.error(e)
+        return 0  # Return 0 in case of error
 
-
+# Function to mark a tray as signed
 def sign_tray(name):
+    # Get logger for this function
     logger = get_logger('sign_tray()')
     try:
-        db.connect()
-        db.set_done(name, 1)
-        db.close_connection()
-    except:
-        logger.error('impossibile connettersi al database')
-        return 0
+        db.connect()  # Connect to the database
+        db.set_done(name, 1)  # Mark the tray as signed in the database
+        db.close_connection()  # Close database connection
+    except Exception as e:
+        logger.error('impossibile connettersi al database: sign_tray')  # Log error if database connection fails
+        logger.error(e)
+        return 0  # Return 0 in case of error
 
-
+# Function to delete a tray from view
 def delete_tray_from_view(name):
+    # Get logger for this function
     logger = get_logger('delete_tray_from_view()')
     try:
-        db.connect()
-        db.set_valid(name, 1)
-        db.close_connection()
-    except:
-        logger.error('impossibile connettersi al database')
-        return 0
-
+        db.connect()  # Connect to the database
+        db.set_valid(name, 1)  # Mark the tray as valid in the database
+        db.close_connection()  # Close database connection
+    except Exception as e:
+        logger.error('impossibile connettersi al database: delete_tray_from_view')  # Log error if database connection fails
+        logger.error(e)
+        return 0  # Return 0 in case of error
 
 def verify_internet():
     logger = get_logger('verify_internet()')
+
     try:
-        with urlopen('https://www.google.it'):
-            return True
-    except BaseException as ex:
-        logger.warning('connessione internet assente: ' + str(ex))
-        return False
+        with urlopen('https://www.google.it') as response:
+            # The with statement ensures the connection is properly closed after usage
+            return response.status == 200  # Return True if HTTP status is 200 (OK)
+    except URLError as ex:
+        logger.warning(f'Internet connection unavailable: {ex}')  # Log warning if internet connection fails
+        return False  # Return False in case of error
 
 
 def verify_db():
     logger = get_logger('verify_db()')
+
     try:
+        # Attempt to connect to the database and execute a simple query
         db.connect().execute("SELECT 1 FROM tray_status LIMIT 1;")
+        # Close the database connection
         db.close_connection()
-        return True
+        return True  # Return True if successful
     except sqlite3.ProgrammingError as e:
-        logger.critical('impossibile connettersi al database ' + str(e))
-        return False
+        logger.critical(f'Error connecting to the database: {e}')  # Log critical error if database connection fails
+        return False  # Return False in case of error
 
 
+# Function to update the database
 def db_update():
+    # Get logger for this function
     logger = get_logger('db_update()')
     try:
-        db.connect()
-        time = datetime.datetime.now().time()
+        db.connect()  # Connect to the database
+        time = datetime.datetime.now().time()  # Get current time
+        # Check if it's lunch time or dinner time
         if datetime.datetime.strptime("00:01", '%H:%M').time() <= time < datetime.datetime.strptime(LUNCH_END_TIME, '%H:%M').time():
-            json_data = get_registro_pasti()
+            json_data = get_registro_pasti()  # Get meal data
             if json_data != 0:
-                json_data = json_data['nomi']['Pranzo']
-                logger.info('aggiornamento dati pranzo')
+                json_data = json_data['nomi']['Pranzo']  # Extract lunch data
+                logger.info('aggiornamento dati pranzo')  # Log info message
             else:
-                logger.warning('impossibile aggiornare')
-                return 0
+                logger.warning('impossibile aggiornare')  # Log warning if data retrieval fails
+                return 0  # Return 0 in case of error
         else:
-            json_data = get_registro_pasti()
+            json_data = get_registro_pasti()  # Get meal data
             if json_data != 0:
-                json_data = json_data['nomi']['Cena']
-                logger.info('aggiornamento dati cena')
+                json_data = json_data['nomi']['Cena']  # Extract dinner data
+                logger.info('aggiornamento dati cena')  # Log info message
             else:
-                logger.warning('impossibile aggiornare')
-                return 0
+                logger.warning('impossibile aggiornare')  # Log warning if data retrieval fails
+                return 0  # Return 0 in case of error
         for i in json_data:
-
-            valid_status = db.get_valid(i['nome'])
+            valid_status = db.get_valid(i['nome'])  # Get validity status of user
 
             if valid_status is None:
-                db.set_name(i['nome'])
+                db.set_name(i['nome'])  # Set user name in the database
                 if i['dieta'] != "":
-                    db.set_dieta(i['nome'], i['dieta'])
-                valid_status = 0
-                logger.info(
-                    'aggiunto utente non presente nel database: ' + i['nome'])
+                    db.set_dieta(i['nome'], i['dieta'])  # Set user diet in the database
+                valid_status = 0  # Set validity status to 0
+                logger.info('aggiunto utente non presente nel database: ' + i['nome'])  # Log info message
             else:
                 valid_status = valid_status[0]
 
+            # Valid status = 0 <=> tray or packed lunch not printed yet
             if valid_status == 0:
-                tray_status = db.get_tray(i['nome'])[0]
+                tray_status = db.get_tray(i['nome'])[0]  # Get tray status for user
+                packed_lunch_status = db.get_packed(i['nome'])[0]  # Get packed lunch status for user
 
+                # If the user has a tray
                 if tray_status == 0 and i['stato'] == 'vassoio':
-                    db.set_tray(i['nome'], 1)
+                    db.set_tray(i['nome'], 1)  # Set tray status to 1 in the database
                 elif tray_status == 1 and i['stato'] != 'vassoio':
-                    db.set_tray(i['nome'], 0)
+                    db.set_tray(i['nome'], 0)  # Set tray status to 0 in the database
+                
+                # If the user has a packed lunch
+                if packed_lunch_status == 0 and i['stato'] == 'sacco':
+                    db.set_packed(i['nome'], 1)  # Set packed lunch status to 1 in the database
+                elif tray_status == 1 and i['stato'] != 'sacco':
+                    db.set_packed(i['nome'], 0)  # Set packed lunch status to 0 in the database
+
+            # Valid status = 1 <=> tray or packed lunch already printed
             else:
-                db.set_tray(i['nome'], 0)
-                db.set_done(i['nome'], 0)
+                db.set_packed(i['nome'], 0)  # Set tray status to 0 in the database
+                db.set_tray(i['nome'], 0)  # Set tray status to 0 in the database
+                db.set_done(i['nome'], 0)  # Set done status to 0 in the database
 
-        db.set_last_update(datetime.datetime.now().strftime('%d/%m/%y %H:%M'))
-        db.close_connection()
+        db.set_last_update(datetime.datetime.now().strftime('%d/%m/%y %H:%M'))  # Set last update time in the database
+        db.close_connection()  # Close database connection
 
-        return 1
-    except:
-        logger.error('impossibile connettersi al database')
-        return 0
-
+        return 1  # Return 1 if successful
+    except Exception as e:
+        logger.error('impossibile connettersi al database: db_update')  # Log error if database connection fails
+        logger.error(e)
+        return 0  # Return 0 in case of error
 
 def get_registro_pasti():
     logger = get_logger('get_registro_pasti()')
+
     try:
+        # Prepare parameters for the GET request
         params = [(URL_PARAM, datetime.datetime.now().date())]
+        # Make the GET request to the URL
         response = requests.get(URL, params=params)
+        # Raise an exception if the response status code is not 200 (OK)
+        response.raise_for_status()
+        # Parse the response as JSON
         data = response.json()
-        # Correzione dei nomi in Mycollege su database
-        for i in data["nomi"]["Pranzo"]:
-            i["nome"] = i["nome"].replace("&agrave;", "à")
-            i["nome"] = i["nome"].replace("o&#039;", "ò")
-            i["nome"] = i["nome"].replace("&atilde;", "a")
-            i["nome"] = i["nome"].replace("ã", "a")
-            i["nome"] = i["nome"].replace("ñ", "n")
-            i["nome"] = i["nome"].replace("&ntilde", "n")
-        for i in data["nomi"]["Cena"]:
-            i["nome"] = i["nome"].replace("&agrave;", "à")
-            i["nome"] = i["nome"].replace("o&#039;", "ò")
-            i["nome"] = i["nome"].replace("&atilde;", "a")
-            i["nome"] = i["nome"].replace("ã", "a")
-            i["nome"] = i["nome"].replace("ñ", "n")
-            i["nome"] = i["nome"].replace("&ntilde", "n")
+
+        # Correct names in the database
+        for meal_type in ["Pranzo", "Cena"]:
+            for item in data["nomi"][meal_type]:
+                special_chars = {
+                    "&agrave;": "à",
+                    "o&#039;": "ò",
+                    "&atilde;": "a",
+                    "ã": "a",
+                    "ñ": "n",
+                    "&ntilde": "n"
+                }
+                for special_char, replacement in special_chars.items():
+                    item["nome"] = item["nome"].replace(special_char, replacement)
+
         return data
-    except:
-        logger.error('impossibile fare il get del json')
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f'Error making GET request: {e}')
         return 0
 
+    except ValueError as e:
+        logger.error(f'Error parsing JSON response: {e}')
+        return 0
 
 def start_print_process(print_queue):
     logger = get_logger('start_print_process()')
@@ -188,6 +223,8 @@ def start_print_process(print_queue):
                 print_queue.pop(0)
                 time.sleep(0.3)
     except Exception as e:
-        print(e)
         logger.error('impossibile connettersi alla stampante')
+        logger.error(e)
         return 0
+
+

@@ -106,8 +106,9 @@ def set_db():
             db.close_connection()
             logger.info('database compilato')
             return 1
-        except:
-            logger.error('impossibile connettersi al database')
+        except Exception as e:
+            logger.error('impossibile connettersi al database: set_db')
+            logger.error(e)
             return 0
 
 
@@ -147,22 +148,33 @@ def db_update():
                 valid_status = valid_status[0]
 
             if valid_status == 0:
-                tray_status = db.get_tray(i['nome'])[0]
+                tray_status = db.get_tray(i['nome'])[0]  # Get tray status for user
+                packed_lunch_status = db.get_packed(i['nome'])[0]  # Get packed lunch status for user
 
-                if tray_status == 0 and i['stato'] == 'Vassoio':
-                    db.set_tray(i['nome'], 1)
-                elif tray_status == 1 and i['stato'] != 'Vassoio':
-                    db.set_tray(i['nome'], 0)
+                # If the user has a tray
+                if tray_status == 0 and i['stato'] == 'vassoio':
+                    db.set_tray(i['nome'], 1)  # Set tray status to 1 in the database
+                elif tray_status == 1 and i['stato'] != 'vassoio':
+                    db.set_tray(i['nome'], 0)  # Set tray status to 0 in the database
+
+                # If the user has a packed lunch
+                if packed_lunch_status == 0 and i['stato'] == 'sacco':
+                    db.set_packed(i['nome'], 1)  # Set packed lunch status to 1 in the database
+                elif tray_status == 1 and i['stato'] != 'sacco':
+                    db.set_packed(i['nome'], 0)  # Set packed lunch status to 0 in the database
+
+            # Valid status = 1 <=> tray or packed lunch already printed
             else:
-                db.set_tray(i['nome'], 0)
-                db.set_done(i['nome'], 0)
+                db.set_packed(i['nome'], 0)  # Set tray status to 0 in the database
+                db.set_tray(i['nome'], 0)  # Set tray status to 0 in the database
+                db.set_done(i['nome'], 0)  # Set done status to 0 in the database
 
         db.set_last_update(datetime.datetime.now().strftime('%d/%m/%y %H:%M'))
         db.close_connection()
 
         return 1
     except:
-        logger.error('impossibile connettersi al database')
+        logger.error('impossibile connettersi al database: db_update BE')
         return 0
 
 
@@ -184,8 +196,9 @@ def reset_db():
             return 0
         logger.info('database resettato')
         return 1
-    except:
-        logger.error('impossibile connettersi al database')
+    except Exception as e:
+        logger.error('impossibile connettersi al database: reset BE')
+        logger.error(e)
         return 0
 
 
@@ -206,7 +219,7 @@ def reset_session():
         logger.info('sessione resettata')
         return 1
     except:
-        logger.error('impossibile connettersi al database')
+        logger.error('impossibile connettersi al database: reset_session BE')
         return 0
 
 
@@ -218,7 +231,7 @@ def create_not_signed_queue():
         db.close_connection()
         return queue
     except:
-        logger.error('impossibile connettersi al database')
+        logger.error('impossibile connettersi al database: create_not_signed_queue BE')
         return 0
 
 
@@ -230,7 +243,7 @@ def create_signed_queue():
         db.close_connection()
         return queue
     except:
-        logger.error('impossibile connettersi al database')
+        logger.error('impossibile connettersi al database: create_signed_queue BE')
         return 0
 
 
@@ -241,7 +254,7 @@ def sign_tray(name):
         db.set_done(name, 1)
         db.close_connection()
     except:
-        logger.error('impossibile connettersi al database')
+        logger.error('impossibile connettersi al database: sign_tray BE')
         return 0
 
 
@@ -252,7 +265,7 @@ def delete_tray_from_view(name):
         db.set_valid(name, 1)
         db.close_connection()
     except:
-        logger.error('impossibile connettersi al database')
+        logger.error('impossibile connettersi al database: delete_tray_from_view BE')
         return 0
 
 
