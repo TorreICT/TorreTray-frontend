@@ -24,6 +24,16 @@ SELECT_NOT_SIGNED_TRAYS_QUERY = """SELECT * FROM tray_status WHERE
                                 "done"=0 AND
                                 "valid"=0;"""
 
+SELECT_SIGNED_PACKED_QUERY = """SELECT * FROM tray_status WHERE
+                            "packed"=1 AND
+                            "done"=1 AND
+                            "valid"=0;"""
+
+SELECT_NOT_SIGNED_PACKED_QUERY = """SELECT * FROM tray_status WHERE
+                                "packed"=1 AND
+                                "done"=0 AND
+                                "valid"=0;"""
+
 SELECT_CLOCK_QUERY = """SELECT * FROM clock;"""
 
 # TODO: aggiunger labels dei logs
