@@ -577,7 +577,7 @@ class RefreshGUIWorker(QRunnable):
                 time.sleep(5)
 
         except Exception as e:
-            logger.exception(f"Errore durante l'esecuzione del thread: {e}")
+            logger.error(f"Errore durante l'esecuzione del thread: {e}")
 
 class MyWorkerSignals(QObject):
     done = pyqtSignal()
