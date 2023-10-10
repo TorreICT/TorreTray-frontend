@@ -155,13 +155,13 @@ def get_registro_pasti():
         return 0
 
 
-def start_print_process(print_queque):
+def start_print_process(print_queue):
     logger = get_logger('start_print_process()')
     try:
         p = Usb(VENDOR_ID, PRODUCT_ID, INTERFACE)
         p.charcode("USA")
-        if print_queque:
-            for i in range(0, len(print_queque)):
+        if print_queue:
+            for i in range(0, len(print_queue)):
                 p.set(height=2, width=2, align='center')
                 p.image(IMG_DIR_PATH + '/logo-torre-mono-medium.png')
                 time.sleep(0.1)
@@ -174,14 +174,18 @@ def start_print_process(print_queque):
                     '    Ora: ' + datetime.datetime.now().time().strftime('%H:%M') + '\n\n\n')
                 p.set(height=2, width=2, align='center')
                 time.sleep(0.1)
-                p.text(print_queque[0][0] + '\n')
-                if print_queque[0][1] is not None:
+                p.text(print_queue[0][0] + '\n')
+                if print_queue[0][1] is not None:
                     p.set(height=1, width=1, align='center')
                     time.sleep(0.1)
-                    p.text(print_queque[0][1] + '\n')
+                    p.text(print_queue[0][1] + '\n')
                 p.text('\n\n\n')
+
+                # Log the printed tray
+                logger.info(f'{print_queue[0][0]}: vassoio stampato')
+
                 p.cut()
-                print_queque.pop(0)
+                print_queue.pop(0)
                 time.sleep(0.3)
     except Exception as e:
         print(e)
