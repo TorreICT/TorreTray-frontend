@@ -4,6 +4,7 @@ from jsonschema.compat import urlopen
 from GUI.logger import *
 from database import *
 import time
+import datetime
 
 # Function to retrieve the unsigned queue from the database
 def create_not_signed_queue():
@@ -191,16 +192,36 @@ def get_registro_pasti():
         return 0
 
 def start_print_process(print_queue):
+    # Ottieni un logger specifico per questa funzione
     logger = get_logger('start_print_process()')
+
     try:
+        # Inizializza la connessione alla stampante USB
         p = Usb(VENDOR_ID, PRODUCT_ID, INTERFACE)
         p.charcode("USA")
+        
+        # Ottieni l'ora corrente
+        current_time = datetime.datetime.now().time()
+        
+        # Determina se l'ora corrente è tra le 6:00 e le 9:00
+        if datetime.time(6, 0) <= current_time <= datetime.time(9, 0):
+            title = "Schiscette Torrescalla"
+        else:
+            title = "Vassoi Torrescalla"
+
+        # Verifica se c'è qualcosa nella coda di stampa
         if print_queue:
+            # Ciclo sulla coda di stampa
             for i in range(0, len(print_queue)):
+                # Configura i parametri della stampa
                 p.set(height=2, width=2, align='center')
                 p.image(IMG_DIR_PATH + '/logo-torre-mono-medium.png')
                 time.sleep(0.1)
-                p.text('Vassoi Torrescalla\n\n\n')
+                
+                # Stampa il nome della query
+                p.text(title + '\n\n\n')
+                
+                # Configura ulteriori parametri della stampa
                 p.set(height=1, width=1, align='left')
                 time.sleep(0.1)
                 p.text('    Data: ' +
@@ -209,6 +230,8 @@ def start_print_process(print_queue):
                     '    Ora: ' + datetime.datetime.now().time().strftime('%H:%M') + '\n\n\n')
                 p.set(height=2, width=2, align='center')
                 time.sleep(0.1)
+                
+                # Stampa il nome e, se disponibile, l'altro valore
                 p.text(print_queue[0][0] + '\n')
                 if print_queue[0][1] is not None:
                     p.set(height=1, width=1, align='center')
@@ -216,15 +239,19 @@ def start_print_process(print_queue):
                     p.text(print_queue[0][1] + '\n')
                 p.text('\n\n\n')
 
-                # Log the printed tray
+                # Logga il vassoio stampato
                 logger.info(f'{print_queue[0][0]}: vassoio stampato')
 
+                # Esegue il taglio della carta
                 p.cut()
+                
+                # Rimuove il vassoio dalla coda di stampa
                 print_queue.pop(0)
+                
+                # Attende prima di passare al prossimo vassoio
                 time.sleep(0.3)
     except Exception as e:
-        logger.error('impossibile connettersi alla stampante')
+        # Gestisce le eccezioni nel caso di errori
+        logger.error('Impossibile connettersi alla stampante')
         logger.error(e)
         return 0
-
-
