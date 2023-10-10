@@ -494,8 +494,8 @@ class Ui_MainWindow(object):
         self.pushButton_2.setText(_translate("MainWindow", "Stampa"))
         # self.pushButton_3.setText(_translate("MainWindow", "Stampa tutti"))
         self.pushButton_4.setText(_translate("MainWindow", "Aggiorna"))
-        self.label_2.setText(_translate("MainWindow", "Vassoi da stampare:"))
-        self.label_3.setText(_translate("MainWindow", "Vassoi stampati:"))
+        self.label_2.setText(_translate("MainWindow", "Da stampare:"))
+        self.label_3.setText(_translate("MainWindow", "Già stampati:"))
 
 
 class UpdateDBWorker(QRunnable):
