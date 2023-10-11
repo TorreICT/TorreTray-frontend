@@ -117,7 +117,7 @@ class Database:
             curs.execute(query, (1, done))
             return curs.fetchall()
         except Exception as e:
-            logger = get_logger('create_signed_queue()')
+            logger = get_logger('get_all()')
             logger.error(e)
             raise
 
