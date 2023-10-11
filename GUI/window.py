@@ -150,7 +150,7 @@ class Ui_MainWindow(object):
     #
     # Un vassoio è "segnato" se era presente (tray=1) ed è stato stampato (done=1)
     #
-    # Il codice sceglie la query da effettuare in base all'orario corrente. Se siamo tra le 6:00 e le 9:00
+    # Il codice sceglie la query da effettuare in base all'orario corrente. Se siamo tra le START_SACCHETTO:00 e le END_SACCHETTO:00
     # sceglierà la query 'SELECT_SIGNED_PACKED_QUERY', altrimenti 'SELECT_SIGNED_TRAYS_QUERY'
     def init_table_segnati(self):
         # Verifica se la connessione al database è valida
@@ -164,8 +164,8 @@ class Ui_MainWindow(object):
             # Ottiene l'ora corrente, check per capire se stampare vassoi o schiscette 
             current_time = datetime.datetime.now().time()
             
-            # Determina se è tra le 6:00 e le 9:00, check solo la mattina
-            if datetime.time(6, 0) <= current_time <= datetime.time(9, 0):
+            # Determina se è tra le START_SACCHETTO:00 e le END_SACCHETTO:00, check solo la mattina
+            if datetime.time(START_SACCHETTO, 0) <= current_time <= datetime.time(END_SACCHETTO, 0):
                 query_to_use = SELECT_SIGNED_PACKED_QUERY
             else:
                 query_to_use = SELECT_SIGNED_TRAYS_QUERY
@@ -223,7 +223,7 @@ class Ui_MainWindow(object):
     #
     # Un vassoio/schiscetta è "non segnato" se era presente (tray=1) ed NON è stato stampato (done=0)
     #
-    # Il codice sceglie la query da effettuare in base all'orario corrente. Se siamo tra le 6:00 e le 9:00
+    # Il codice sceglie la query da effettuare in base all'orario corrente. Se siamo tra le START_SACCHETTO:00 e le END_SACCHETTO:00
     # sceglierà la query 'SELECT_NOT_SIGNED_PACKED_QUERY', altrimenti 'SELECT_NOT_SIGNED_TRAYS_QUERY'
     def init_table_non_segnati(self):
         # Verifica se la connessione al database è valida
@@ -237,8 +237,8 @@ class Ui_MainWindow(object):
             # Ottiene l'ora corrente
             current_time = datetime.datetime.now().time()
             
-            # Determina se è tra le 6:00 e le 9:00
-            if datetime.time(6, 0) <= current_time <= datetime.time(9, 0):
+            # Determina se è tra le START_SACCHETTO:00 e le END_SACCHETTO:00
+            if datetime.time(START_SACCHETTO, 0) <= current_time <= datetime.time(END_SACCHETTO, 0):
                 query_to_use = SELECT_NOT_SIGNED_PACKED_QUERY
             else:
                 query_to_use = SELECT_NOT_SIGNED_TRAYS_QUERY
