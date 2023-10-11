@@ -179,47 +179,75 @@ def db_update():
 
 
 def reset_db():
+    # Initialize logger for this function
     logger = get_logger('reset_db()')
+    
     try:
         db.connect()
+        # Clear the database
         db.clear_db()
+        # Create a new database using a specific query
         db.create_database(TRAY_DB_CREATE_QUERY)
+        # Close the connection after operations are complete
         db.close_connection()
-        set_res = set_db()
-        if set_res != 0:
-            update_res = db_update()
-            if update_res == 0:
-                logger.warning('impossibile resettare database')
+        # Set the database
+        set_result = set_db()
+        # Check if setting the database was successful
+        if set_result != 0:
+            # If successful, try to update the database
+            update_result = db_update()
+            
+            # Check if the update was successful
+            if update_result == 0:
+                # Log a warning if update fails and return 0
+                logger.warning('Unable to update database')
                 return 0
         else:
-            logger.warning('impossibile resettare database')
+            # Log a warning if setting the database fails and return 0
+            logger.warning('Unable to set database')
             return 0
-        logger.info('database resettato')
+        # Log an info message indicating successful database reset
+        logger.info('Database reset successful')
         return 1
+    
     except Exception as e:
-        logger.error('impossibile connettersi al database: reset BE')
+        # Log an error if unable to connect to the database
+        logger.error('Unable to connect to database: reset BE')
+        # Log the specific error that occurred
         logger.error(e)
+        # Return 0 to indicate an error occurred
         return 0
 
 
 def reset_session():
+    # Initialize logger for this function
     logger = get_logger('reset_session()')
     try:
         db.connect()
-        name = db.get_all_name()
-
-        for i in name:
+        # Get a list of all names from the database
+        names = db.get_all_name()
+        
+        for i in names:
+            # Get the 'done' status for the current name
             done_status = db.get_done(i[0])
 
+            # Check if 'done' status is not None
             if done_status is not None:
+                # Reset various attributes for the current name
                 db.set_tray(i[0], 0)
                 db.set_done(i[0], 0)
                 db.set_valid(i[0], 0)
+                set_packed(i[0], 0)
+
         db.close_connection()
-        logger.info('sessione resettata')
+        # Log an info message indicating successful session reset
+        logger.info('Session reset successful')
         return 1
-    except:
-        logger.error('impossibile connettersi al database: reset_session BE')
+
+    except Exception as e:
+        logger.error('Unable to connect to database: reset_session BE')
+        logger.error(e)
+
         return 0
 
 
@@ -230,8 +258,9 @@ def create_not_signed_queue():
         queue = db.get_all(1, 0)
         db.close_connection()
         return queue
-    except:
+    except Exception as e:
         logger.error('impossibile connettersi al database: create_not_signed_queue BE')
+        logger.error(e)
         return 0
 
 
