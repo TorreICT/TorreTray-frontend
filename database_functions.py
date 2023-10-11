@@ -102,13 +102,23 @@ class Database:
         except:
             raise
 
-    def get_all(self, tray, done):
-        query = """SELECT name,diet FROM tray_status WHERE tray=? AND done=? AND valid=0;"""
+    # trayOrPacked = 0 -> tray
+    # trayOrPacked = 1 -> packed
+    def get_all(self, trayOrPacked, done):
+
+        query = ""
+        
+        if trayOrPacked == 0:
+            query = """SELECT name,diet FROM tray_status WHERE tray=? AND done=? AND valid=0;"""
+        elif trayOrPacked == 1:
+            query = """SELECT name,diet FROM tray_status WHERE packed=? AND done=? AND valid=0;"""
         try:
             curs = self.db_conn.cursor()
-            curs.execute(query, (tray, done))
+            curs.execute(query, (1, done))
             return curs.fetchall()
-        except:
+        except Exception as e:
+            logger = get_logger('create_signed_queue()')
+            logger.error(e)
             raise
 
     def set_done(self, name, status):
