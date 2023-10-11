@@ -237,7 +237,7 @@ def reset_session():
                 db.set_tray(i[0], 0)
                 db.set_done(i[0], 0)
                 db.set_valid(i[0], 0)
-                set_packed(i[0], 0)
+                db.set_packed(i[0], 0)
 
         db.close_connection()
         # Log an info message indicating successful session reset
