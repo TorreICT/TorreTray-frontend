@@ -14,8 +14,10 @@ def create_not_signed_queue():
         db.connect()  # Connect to the database
         queue = []
 
-        # Determina se l'ora corrente è tra le 6:00 e le 9:00
-        if datetime.time(6, 0) <= current_time <= datetime.time(9, 0):
+        current_time = datetime.datetime.now().time()  # Get current time
+
+        # Determina se l'ora corrente è tra le START_SACCHETTO:00 e le END_SACCHETTO:00
+        if datetime.time(START_SACCHETTO, 0) <= current_time <= datetime.time(END_SACCHETTO, 0):
             queue = db.get_all(1, 0)  # Get unsigned queue from database
         else:
             queue = db.get_all(0, 0)  # Get unsigned queue from database
@@ -74,7 +76,7 @@ def verify_internet():
         with urlopen('https://www.google.it') as response:
             # The with statement ensures the connection is properly closed after usage
             return response.status == 200  # Return True if HTTP status is 200 (OK)
-    except URLError as ex:
+    except Exception as ex:
         logger.warning(f'Internet connection unavailable: {ex}')  # Log warning if internet connection fails
         return False  # Return False in case of error
 
@@ -210,8 +212,8 @@ def start_print_process(print_queue):
         # Ottieni l'ora corrente
         current_time = datetime.datetime.now().time()
         
-        # Determina se l'ora corrente è tra le 6:00 e le 9:00
-        if datetime.time(6, 0) <= current_time <= datetime.time(9, 0):
+        # Determina se l'ora corrente è tra le START_SACCHETTO:00 e le END_SACCHETTO:00
+        if datetime.time(START_SACCHETTO, 0) <= current_time <= datetime.time(END_SACCHETTO, 0):
             title = "Schiscette Torrescalla"
         else:
             title = "Vassoi Torrescalla"
