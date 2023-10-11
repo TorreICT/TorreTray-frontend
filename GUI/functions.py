@@ -12,7 +12,14 @@ def create_not_signed_queue():
     logger = get_logger('create_not_signed_queue()')
     try:
         db.connect()  # Connect to the database
-        queue = db.get_all(1, 0)  # Get unsigned queue from database
+        queue = []
+
+        # Determina se l'ora corrente è tra le 6:00 e le 9:00
+        if datetime.time(6, 0) <= current_time <= datetime.time(9, 0):
+            queue = db.get_all(1, 0)  # Get unsigned queue from database
+        else:
+            queue = db.get_all(0, 0)  # Get unsigned queue from database
+            
         db.close_connection()  # Close database connection
         return queue  # Return the unsigned queue
     except Exception as e:
