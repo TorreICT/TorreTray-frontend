@@ -35,11 +35,23 @@ def create_signed_queue():
     logger = get_logger('create_signed_queue()')
     try:
         db.connect()  # Connect to the database
-        queue = db.get_all(1, 1)  # Get signed queue from database
+        # Una coda contenenete tutti i vassoi/schiscette chiesti sull'app e stampati (tray/packed=1, done=1, valid=0)
+        # La coda viene ottenuta tramite la funzione db.get_all()
+        queue  = []
+
+        # Ottieni l'ora corrente
+        current_time = datetime.datetime.now().time()
+        
+        # Determina se l'ora corrente è tra le START_SACCHETTO:00 e le END_SACCHETTO:00
+        if datetime.time(START_SACCHETTO, 0) <= current_time <= datetime.time(END_SACCHETTO, 0):
+            queue = db.get_all(1, 1)  # Get signed packed queue from database
+        else:
+            queue = db.get_all(0, 1)  # Get signed trays queue from database
+        
         db.close_connection()  # Close database connection
         return queue  # Return the signed queue
     except Exception as e:
-        logger.error('impossibile connettersi al database:create_signed_queue')  # Log error if database connection fails
+        logger.error('impossibile connettersi al database: create_signed_queue')  # Log error if database connection fails
         logger.error(e)
         return 0  # Return 0 in case of error
 

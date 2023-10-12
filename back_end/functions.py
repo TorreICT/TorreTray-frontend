@@ -22,12 +22,16 @@ def play_sound():
     play_obj = wave_obj.play()
     play_obj.wait_done()
 
-
+# Emette un suono se ci sono vassoi non stampati in coda
 def run_play_sound():
     logger = get_logger('run_play_sound()')
+
+    # Se la coda dei vassoi non stampati NON è vuota
     if len(create_not_signed_queue()) != 0:
         try:
             logger.info("Campanella")
+
+            # Emetti suono
             threading.Thread(target=play_sound).start()
         except:
             logger.error('impossibile spawnare il thread del suono')
@@ -255,7 +259,17 @@ def create_not_signed_queue():
     logger = get_logger('create_not_signed_queue()')
     try:
         db.connect()
-        queue = db.get_all(1, 0)
+        # Una coda contenenete tutti i vassoi/schiscette chiesti sull'app ma NON stampati (tray/packed=1, done=0, valid=0)
+        # La coda viene ottenuta tramite la funzione db.get_all()
+        queue  = []
+
+        # Ottieni l'ora corrente
+        current_time = datetime.datetime.now().time()
+        # Determina se l'ora corrente è tra le START_SACCHETTO:00 e le END_SACCHETTO:00
+        if datetime.time(START_SACCHETTO, 0) <= current_time <= datetime.time(END_SACCHETTO, 0):
+            queue = db.get_all(1, 0)
+        else:
+            queue = db.get_all(0, 0)
         db.close_connection()
         return queue
     except Exception as e:
@@ -268,7 +282,17 @@ def create_signed_queue():
     logger = get_logger('create_signed_queue()')
     try:
         db.connect()
-        queue = db.get_all(1, 1)
+        # Una coda contenenete tutti i vassoi/schiscette chiesti sull'app e stampati (tray/packed=1, done=1, valid=0)
+        # La coda viene ottenuta tramite la funzione db.get_all()
+        queue  = []
+
+        # Ottieni l'ora corrente
+        current_time = datetime.datetime.now().time()
+        # Determina se l'ora corrente è tra le START_SACCHETTO:00 e le END_SACCHETTO:00
+        if datetime.time(START_SACCHETTO, 0) <= current_time <= datetime.time(END_SACCHETTO, 0):
+            queue = db.get_all(1, 1)
+        else:
+            queue = db.get_all(0, 1)
         db.close_connection()
         return queue
     except:
