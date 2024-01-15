@@ -177,32 +177,31 @@ def db_update():
 
 def get_registro_pasti():
     logger = get_logger('get_registro_pasti()')
-
     try:
-        # Prepare parameters for the GET request
         params = [(URL_PARAM, datetime.datetime.now().date())]
-        # Make the GET request to the URL
         response = requests.get(URL, params=params)
-        # Raise an exception if the response status code is not 200 (OK)
-        response.raise_for_status()
-        # Parse the response as JSON
         data = response.json()
-
-        # Correct names in the database
-        for meal_type in ["Pranzo", "Cena"]:
-            for item in data["nomi"][meal_type]:
-                special_chars = {
-                    "&agrave;": "à",
-                    "o&#039;": "ò",
-                    "&atilde;": "a",
-                    "ã": "a",
-                    "ñ": "n",
-                    "&ntilde": "n"
-                }
-                for special_char, replacement in special_chars.items():
-                    item["nome"] = item["nome"].replace(special_char, replacement)
-
+        # Correzione dei nomi in Mycollege su database
+        for i in data["nomi"]["Pranzo"]:
+            i["nome"] = i["nome"].replace("&agrave;", "à")
+            i["nome"] = i["nome"].replace("o&#039;", "ò")
+            i["nome"] = i["nome"].replace("&atilde;", "a")
+            i["nome"] = i["nome"].replace("ã", "a")
+            i["nome"] = i["nome"].replace("ñ", "n")
+            i["nome"] = i["nome"].replace("&ntilde", "n")
+            i["nome"] = i["nome"].replace("&ograve;", "ò")
+        for i in data["nomi"]["Cena"]:
+            i["nome"] = i["nome"].replace("&agrave;", "à")
+            i["nome"] = i["nome"].replace("o&#039;", "ò")
+            i["nome"] = i["nome"].replace("&atilde;", "a")
+            i["nome"] = i["nome"].replace("ã", "a")
+            i["nome"] = i["nome"].replace("ñ", "n")
+            i["nome"] = i["nome"].replace("&ntilde", "n")
+            i["nome"] = i["nome"].replace("&ograve;", "ò")
         return data
+    except:
+        logger.error('impossibile fare il get del json')
+        return 0
 
     except requests.exceptions.RequestException as e:
         logger.error(f'Error making GET request: {e}')
