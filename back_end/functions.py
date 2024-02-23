@@ -78,20 +78,20 @@ def get_registro_pasti():
         # Correzione dei nomi in Mycollege su database
         for i in data["nomi"]["Pranzo"]:
             i["nome"] = i["nome"].replace("&agrave;", "à")
-            i["nome"] = i["nome"].replace("o&#039;", "ò")
+            i["nome"] = i["nome"].replace("o&#039;", "o")
             i["nome"] = i["nome"].replace("&atilde;", "a")
             i["nome"] = i["nome"].replace("ã", "a")
             i["nome"] = i["nome"].replace("ñ", "n")
             i["nome"] = i["nome"].replace("&ntilde", "n")
-            i["nome"] = i["nome"].replace("&ograve;", "ò")
+            i["nome"] = i["nome"].replace("&ograve;", "o")
         for i in data["nomi"]["Cena"]:
             i["nome"] = i["nome"].replace("&agrave;", "à")
-            i["nome"] = i["nome"].replace("o&#039;", "ò")
+            i["nome"] = i["nome"].replace("o&#039;", "o")
             i["nome"] = i["nome"].replace("&atilde;", "a")
             i["nome"] = i["nome"].replace("ã", "a")
             i["nome"] = i["nome"].replace("ñ", "n")
             i["nome"] = i["nome"].replace("&ntilde", "n")
-            i["nome"] = i["nome"].replace("&ograve;", "ò")
+            i["nome"] = i["nome"].replace("&ograve;", "o")
         return data
     except:
         logger.error('impossibile fare il get del json')
