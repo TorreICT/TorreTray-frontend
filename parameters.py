@@ -4,6 +4,9 @@ import os
 # Set up root project folder OS independent
 WORKING_DIR_PATH = os.path.dirname(os.path.abspath(__file__))  # Project root
 
+START_SACCHETTO = 19
+END_SACCHETTO = 21
+
 IMG_DIR_PATH = os.path.join(WORKING_DIR_PATH, 'res', 'img')
 DB_FILE_PATH = os.path.join(WORKING_DIR_PATH, 'database_tray.db')
 
