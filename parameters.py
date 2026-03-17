@@ -4,8 +4,8 @@ import os
 # Set up root project folder OS independent
 WORKING_DIR_PATH = os.path.dirname(os.path.abspath(__file__))  # Project root
 
-START_SACCHETTO = 19
-END_SACCHETTO = 21
+START_SACCHETTO = 7
+END_SACCHETTO = 9
 
 IMG_DIR_PATH = os.path.join(WORKING_DIR_PATH, 'res', 'img')
 DB_FILE_PATH = os.path.join(WORKING_DIR_PATH, 'database_tray.db')
@@ -15,6 +15,7 @@ TRAY_DB_CREATE_QUERY = """CREATE TABLE IF NOT EXISTS "tray_status" (
              "name" varchar(50) PRIMARY KEY NOT NULL,
              "diet" varchar(50),
              "tray" INTEGER DEFAULT 0,
+             "packed" INTEGER DEFAULT 0,
              "done" INTEGER DEFAULT 0,
              "valid" INTEGER DEFAULT 0
            );"""
