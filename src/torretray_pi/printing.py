@@ -24,7 +24,7 @@ class PrinterService:
 
     def print_ticket(self, reservation: Reservation, filters: ReservationFilters) -> None:
         if Usb is None:
-            raise PrinterError("python-escpos non è disponibile in questo ambiente.")
+            raise PrinterError("python-escpos non e disponibile in questo ambiente.")
 
         try:
             printer = Usb(
@@ -47,10 +47,15 @@ class PrinterService:
             if reservation.diet_label != "-":
                 printer.set(height=1, width=1, align="center")
                 printer.text(f"{reservation.diet_label}\n")
-            if reservation.preferences_summary != "-":
-                printer.set(height=1, width=1, align="left")
-                printer.text("\nPreferenze:\n")
-                printer.text(f"{reservation.preferences_summary}\n")
+
+            printer.set(height=1, width=1, align="left")
+            printer.text("\nPreferenze:\n")
+            if reservation.preference_lines:
+                for line in reservation.preference_lines:
+                    printer.text(f"{line}\n")
+            else:
+                printer.text("Senza preferenze\n")
+
             printer.text("\n\n")
             printer.cut()
             close = getattr(printer, "close", None)

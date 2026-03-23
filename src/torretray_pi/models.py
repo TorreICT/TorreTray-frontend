@@ -84,24 +84,42 @@ class Reservation:
         return self.diet.strip() if self.diet and self.diet.strip() else "-"
 
     @property
-    def preferences_summary(self) -> str:
-        if not self.preferences:
-            return "-"
+    def preference_lines(self) -> list[str]:
+        if not isinstance(self.preferences, dict):
+            return []
 
-        parts: list[str] = []
-        for key, value in self.preferences.items():
-            label = key.replace("_", " ").strip().title()
-            if isinstance(value, dict):
-                selected = value.get("selected_dish")
-                if value.get("no_specific_preference"):
-                    content = "Nessuna preferenza"
-                elif selected:
-                    content = str(selected)
-                elif value.get("selected") is False:
-                    content = "Escluso"
-                else:
-                    content = "Selezionato"
+        raw_sections = self.preferences.get("sections")
+        if not isinstance(raw_sections, list):
+            return []
+
+        lines: list[str] = []
+        for raw_section in raw_sections:
+            if not isinstance(raw_section, dict):
+                continue
+
+            section_name = str(raw_section.get("section_name") or "").strip()
+            if not section_name:
+                continue
+
+            if raw_section.get("selected") is False:
+                continue
+
+            if raw_section.get("no_specific_preference"):
+                content = "Senza preferenze"
             else:
-                content = str(value)
-            parts.append(f"{label}: {content}")
-        return " | ".join(parts) if parts else "-"
+                selected_dish = raw_section.get("selected_dish")
+                if isinstance(selected_dish, str) and selected_dish.strip():
+                    content = selected_dish.strip()
+                else:
+                    continue
+
+            lines.append(f"{section_name}: {content}")
+
+        return lines
+
+    @property
+    def preferences_summary(self) -> str:
+        lines = self.preference_lines
+        if not lines:
+            return "Senza preferenze"
+        return " | ".join(lines)
