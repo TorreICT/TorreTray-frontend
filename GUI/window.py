@@ -129,6 +129,11 @@ class Ui_MainWindow(object):
         QTimer.singleShot(1000, self.init_table_non_segnati)
         QTimer.singleShot(1000, self.set_clock)
 
+        # Timer per aggiornamento automatico ogni 5 minuti durante le fasce orarie
+        self.auto_update_timer = QTimer()
+        self.auto_update_timer.timeout.connect(self.auto_update_db)
+        self.auto_update_timer.start(5 * 60 * 1000)  # 5 minuti in millisecondi
+
         # Mutex vari
         self.mutex = QMutex()
 
@@ -462,6 +467,14 @@ class Ui_MainWindow(object):
         worker.signals.done.connect(lambda: logger.info('interfaccia aggiornata'))
         worker.signals.done.connect(lambda: Dialog.done(QtWidgets.QDialog.Accepted))
         self.threadpool.start(worker)
+
+    def auto_update_db(self):
+        current_time = datetime.datetime.now().time()
+        if datetime.time(12, 45) <= current_time <= datetime.time(13, 25) or datetime.time(19, 30) <= current_time <= datetime.time(20, 25):
+            self.on_pushbutton4_clicked()
+        else:
+            logger = get_logger('auto_update_db()')
+            logger.info("Fuori fascia oraria, aggiornamento automatico saltato")
 
     def update_gui_thread(self):
         # print('thread started')
