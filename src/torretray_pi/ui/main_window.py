@@ -1,0 +1,437 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from datetime import datetime
+
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+from torretray_pi.audio import BellPlayer
+from torretray_pi.backend_client import BackendClient
+from torretray_pi.config import AppSettings, ScheduledServiceWindow
+from torretray_pi.models import Reservation, ReservationFilters
+from torretray_pi.printing import PrinterService
+from torretray_pi.services import PrintJobResult, ReservationService, ReservationSnapshot
+from torretray_pi.ui.dialogs import ConfirmationDialog, LoadingDialog
+from torretray_pi.ui.widgets import ReservationTable
+
+
+class WorkerSignals(QtCore.QObject):
+    succeeded = QtCore.pyqtSignal(object)
+    failed = QtCore.pyqtSignal(str)
+    finished = QtCore.pyqtSignal()
+
+
+class BackgroundTask(QtCore.QRunnable):
+    """Run one blocking function on the Qt thread pool."""
+
+    def __init__(self, fn: Callable[[], object]) -> None:
+        super().__init__()
+        self._fn = fn
+        self.signals = WorkerSignals()
+
+    @QtCore.pyqtSlot()
+    def run(self) -> None:
+        try:
+            result = self._fn()
+        except Exception as exc:  # pragma: no cover - exercised through UI
+            self.signals.failed.emit(str(exc))
+        else:
+            self.signals.succeeded.emit(result)
+        finally:
+            self.signals.finished.emit()
+
+
+class MainWindow(QtWidgets.QMainWindow):
+    """Main TorreTray operational screen."""
+
+    def __init__(self, *, settings: AppSettings) -> None:
+        super().__init__()
+        self.settings = settings
+        self.client = BackendClient(
+            base_url=settings.api_base_url,
+            timeout_seconds=settings.request_timeout_seconds,
+        )
+        self.service = ReservationService(
+            client=self.client,
+            printer=PrinterService(settings),
+        )
+        self.thread_pool = QtCore.QThreadPool(self)
+        self.loading_dialog: LoadingDialog | None = None
+        self._bell_player = BellPlayer(sound_path=settings.bell_sound_path, parent=self)
+        self._busy = False
+        self._snapshot: ReservationSnapshot | None = None
+        self._active_service: ScheduledServiceWindow | None = None
+        self._active_filters: ReservationFilters | None = None
+        self._last_auto_refresh_at: datetime | None = None
+
+        self._build_ui()
+        self._bind_events()
+        self._setup_timers()
+
+        QtCore.QTimer.singleShot(
+            250,
+            lambda: self._evaluate_schedule(force_refresh=True, show_loading=True),
+        )
+
+    def _build_ui(self) -> None:
+        self.setWindowTitle("Vassoi Torrescalla")
+        self.setWindowIcon(QtGui.QIcon(str(self.settings.window_icon_path)))
+        self.resize(1210, 780)
+
+        central_widget = QtWidgets.QWidget(self)
+        root_layout = QtWidgets.QHBoxLayout(central_widget)
+        root_layout.setContentsMargins(6, 6, 6, 6)
+        root_layout.setSpacing(6)
+
+        root_layout.addWidget(self._build_table_area(), stretch=4)
+        root_layout.addWidget(self._build_control_panel(), stretch=1)
+
+        self.setCentralWidget(central_widget)
+
+        self.status_label = QtWidgets.QLabel("Ultimo aggiornamento: N/D", self)
+        self.statusBar().addPermanentWidget(self.status_label)
+        self.statusBar().showMessage("In attesa della prima fascia oraria attiva")
+
+    def _build_table_area(self) -> QtWidgets.QWidget:
+        wrapper = QtWidgets.QWidget(self)
+        layout = QtWidgets.QVBoxLayout(wrapper)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+
+        header = QtWidgets.QFrame(wrapper)
+        header.setObjectName("tablePanel")
+        header_layout = QtWidgets.QVBoxLayout(header)
+        header_layout.setContentsMargins(18, 14, 18, 14)
+        header_layout.setSpacing(2)
+
+        title = QtWidgets.QLabel("Prenotazioni di oggi", header)
+        title.setObjectName("panelTitle")
+        header_layout.addWidget(title)
+
+        self.context_label = QtWidgets.QLabel("", header)
+        self.context_label.setObjectName("contextLabel")
+        self.context_label.setWordWrap(True)
+        header_layout.addWidget(self.context_label)
+        layout.addWidget(header)
+
+        self.pending_table = ReservationTable(
+            title="Da stampare:",
+            action_icon_path=str(self.settings.printer_icon_path),
+            action_tooltip="Stampa ticket",
+            parent=wrapper,
+        )
+        self.printed_table = ReservationTable(
+            title="Gia stampati:",
+            action_icon_path=str(self.settings.printer_icon_path),
+            action_tooltip="Ristampa ticket",
+            parent=wrapper,
+        )
+        self.printed_table.setMaximumHeight(360)
+
+        layout.addWidget(self.pending_table, stretch=3)
+        layout.addWidget(self.printed_table, stretch=2)
+        return wrapper
+
+    def _build_control_panel(self) -> QtWidgets.QFrame:
+        panel = QtWidgets.QFrame(self)
+        panel.setObjectName("controlPanel")
+        panel.setMinimumWidth(270)
+
+        layout = QtWidgets.QVBoxLayout(panel)
+        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setSpacing(14)
+
+        title = QtWidgets.QLabel("Comandi:", panel)
+        title.setObjectName("panelTitle")
+        layout.addWidget(title)
+
+        auto_label = QtWidgets.QLabel("Modalita automatica", panel)
+        auto_label.setObjectName("sectionTitle")
+        layout.addWidget(auto_label)
+
+        self.mode_description = QtWidgets.QLabel(panel)
+        self.mode_description.setObjectName("contextLabel")
+        self.mode_description.setWordWrap(True)
+        layout.addWidget(self.mode_description)
+
+        layout.addSpacing(10)
+
+        self.print_pending_button = self._make_action_button("Stampa", "primary")
+        self.refresh_button = self._make_action_button("Aggiorna", "secondary")
+
+        layout.addWidget(self.print_pending_button)
+        layout.addWidget(self.refresh_button)
+        layout.addStretch()
+
+        footer_logo = QtWidgets.QLabel(panel)
+        footer_logo.setAlignment(QtCore.Qt.AlignCenter)
+        footer_logo.setPixmap(QtGui.QPixmap(str(self.settings.footer_logo_path)))
+        layout.addWidget(footer_logo)
+
+        return panel
+
+    def _bind_events(self) -> None:
+        self.refresh_button.clicked.connect(
+            lambda: self._evaluate_schedule(force_refresh=True, show_loading=True)
+        )
+        self.print_pending_button.clicked.connect(self._print_pending_batch)
+        self.pending_table.row_action_requested.connect(self._print_single_pending)
+        self.printed_table.row_action_requested.connect(self._reprint_single)
+
+    def _setup_timers(self) -> None:
+        self.schedule_timer = QtCore.QTimer(self)
+        self.schedule_timer.setInterval(30 * 1000)
+        self.schedule_timer.timeout.connect(
+            lambda: self._evaluate_schedule(force_refresh=False, show_loading=False)
+        )
+        self.schedule_timer.start()
+
+        self.bell_timer = QtCore.QTimer(self)
+        self.bell_timer.setInterval(self.settings.bell_interval_seconds * 1000)
+        self.bell_timer.timeout.connect(self._ring_if_needed)
+        self.bell_timer.start()
+
+    def _make_action_button(self, label: str, variant: str) -> QtWidgets.QPushButton:
+        button = QtWidgets.QPushButton(label, self)
+        button.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+        button.setMinimumHeight(80)
+        button.setProperty("variant", variant)
+        return button
+
+    def _evaluate_schedule(self, *, force_refresh: bool, show_loading: bool) -> None:
+        now = datetime.now()
+        active_service = self.settings.resolve_active_service(now)
+        service_changed = self._service_key(active_service) != self._service_key(
+            self._active_service
+        )
+
+        self._active_service = active_service
+        self._active_filters = (
+            active_service.filters_for(now.date()) if active_service is not None else None
+        )
+
+        if active_service is None:
+            self._last_auto_refresh_at = None
+            self._apply_idle_state(now)
+            return
+
+        self._update_active_context(now, active_service)
+        refresh_due = self._last_auto_refresh_at is None or (
+            now - self._last_auto_refresh_at
+        ).total_seconds() >= self.settings.auto_refresh_minutes * 60
+
+        if force_refresh or service_changed or refresh_due:
+            self.refresh_data(sync=True, show_loading=show_loading)
+        else:
+            self._refresh_action_states()
+
+    def refresh_data(self, sync: bool, show_loading: bool) -> None:
+        if self._busy:
+            return
+        if self._active_filters is None:
+            self._apply_idle_state(datetime.now())
+            return
+
+        self._run_task(
+            task=lambda: self.service.load_snapshot(self._active_filters, sync=sync),
+            on_success=self._apply_snapshot,
+            loading_message="Aggiornando..." if show_loading else None,
+        )
+
+    def _apply_snapshot(self, snapshot: ReservationSnapshot) -> None:
+        self._snapshot = snapshot
+        self._last_auto_refresh_at = snapshot.refreshed_at
+        self.pending_table.set_reservations(snapshot.unprinted)
+        self.printed_table.set_reservations(snapshot.printed)
+
+        if self._active_service is not None:
+            self._update_active_context(snapshot.refreshed_at, self._active_service)
+
+        self.status_label.setText(
+            f"Ultimo aggiornamento: {snapshot.refreshed_at.strftime('%d/%m/%Y %H:%M:%S')}"
+        )
+        if snapshot.sync_result is not None:
+            self.statusBar().showMessage("Dati sincronizzati correttamente", 5000)
+        else:
+            self.statusBar().showMessage("Lista aggiornata", 3000)
+        self._refresh_action_states()
+
+        if snapshot.unprinted:
+            self._bell_player.ring()
+
+    def _apply_idle_state(self, now: datetime) -> None:
+        self._snapshot = None
+        self.pending_table.set_reservations([])
+        self.printed_table.set_reservations([])
+        self.status_label.setText("Ultimo aggiornamento: N/D")
+
+        next_service = self.settings.next_service(now)
+        if next_service is None:
+            self.context_label.setText("Fuori fascia oraria automatica.")
+            self.mode_description.setText(
+                "Nessuna fascia configurata disponibile nei prossimi giorni."
+            )
+        else:
+            service, preload_time = next_service
+            self.context_label.setText(
+                f"Fuori fascia oraria. Prossimo caricamento: {service.label} alle "
+                f"{preload_time.strftime('%H:%M')}."
+            )
+            self.mode_description.setText(
+                "L'app carica automaticamente i ticket 5 minuti prima del pasto "
+                "e li aggiorna ogni 5 minuti fino a fine fascia."
+            )
+        self.statusBar().showMessage("Fuori fascia oraria automatica", 3000)
+        self._refresh_action_states()
+
+    def _update_active_context(
+        self,
+        current_moment: datetime,
+        active_service: ScheduledServiceWindow,
+    ) -> None:
+        if current_moment < active_service.starts_at(current_moment.date()):
+            phase_label = "Precaricamento attivo"
+        else:
+            phase_label = "Fascia attiva"
+
+        self.context_label.setText(
+            f"{phase_label}: {active_service.label} fino alle "
+            f"{active_service.end_time.strftime('%H:%M')}."
+        )
+        self.mode_description.setText(
+            "Caricamento automatico 5 minuti prima del pasto e refresh "
+            f"ogni {self.settings.auto_refresh_minutes} minuti finche ci sono ticket."
+        )
+
+    def _refresh_action_states(self) -> None:
+        pending = bool(self._snapshot and self._snapshot.unprinted)
+        self.print_pending_button.setEnabled(pending and not self._busy)
+        self.refresh_button.setEnabled(not self._busy)
+
+    def _print_pending_batch(self) -> None:
+        reservations = self._snapshot.unprinted if self._snapshot else []
+        self._start_print_job(
+            reservations=reservations,
+            mark_as_printed=True,
+            title="Conferma stampa",
+            message="Sei sicuro di voler stampare tutti i ticket da stampare?",
+        )
+
+    def _print_single_pending(self, reservation: Reservation) -> None:
+        self._start_print_job(
+            reservations=[reservation],
+            mark_as_printed=True,
+            title="Conferma stampa",
+            message=f"Stampare il ticket per {reservation.name}?",
+        )
+
+    def _reprint_single(self, reservation: Reservation) -> None:
+        self._start_print_job(
+            reservations=[reservation],
+            mark_as_printed=False,
+            title="Conferma ristampa",
+            message=f"Ristampare il ticket per {reservation.name}?",
+        )
+
+    def _start_print_job(
+        self,
+        *,
+        reservations: list[Reservation],
+        mark_as_printed: bool,
+        title: str,
+        message: str,
+    ) -> None:
+        if not reservations:
+            self.statusBar().showMessage(
+                "Nessun ticket disponibile per questa azione.",
+                4000,
+            )
+            return
+        if self._active_filters is None:
+            self.statusBar().showMessage("Nessuna fascia attiva per la stampa.", 4000)
+            return
+
+        dialog = ConfirmationDialog(title=title, message=message, parent=self)
+        if dialog.exec_() != QtWidgets.QDialog.Accepted:
+            self.statusBar().showMessage("Operazione annullata.", 3000)
+            return
+
+        self._run_task(
+            task=lambda: self.service.print_reservations(
+                reservations,
+                self._active_filters,
+                mark_as_printed=mark_as_printed,
+            ),
+            on_success=self._on_print_success,
+            on_finished=lambda: self._evaluate_schedule(
+                force_refresh=True,
+                show_loading=False,
+            ),
+            loading_message="Stampando...",
+        )
+
+    def _on_print_success(self, result: PrintJobResult) -> None:
+        if result.marked_count:
+            self.statusBar().showMessage(
+                (
+                    f"Stampati {result.printed_count} ticket e "
+                    f"aggiornati {result.marked_count} stati."
+                ),
+                5000,
+            )
+        else:
+            self.statusBar().showMessage(
+                f"Stampati {result.printed_count} ticket.",
+                5000,
+            )
+
+    def _ring_if_needed(self) -> None:
+        if self._busy or self._active_service is None or self._snapshot is None:
+            return
+        if self._snapshot.unprinted:
+            self._bell_player.ring()
+
+    def _run_task(
+        self,
+        *,
+        task: Callable[[], object],
+        on_success: Callable[[object], None],
+        loading_message: str | None,
+        on_finished: Callable[[], None] | None = None,
+    ) -> None:
+        self._busy = True
+        self._refresh_action_states()
+
+        if loading_message:
+            self.loading_dialog = LoadingDialog(
+                message=loading_message,
+                gif_path=str(self.settings.loading_gif_path),
+                parent=self,
+            )
+            self.loading_dialog.show()
+
+        worker = BackgroundTask(task)
+        worker.signals.succeeded.connect(on_success)
+        worker.signals.failed.connect(self._handle_worker_error)
+        worker.signals.finished.connect(self._finish_background_task)
+        if on_finished is not None:
+            worker.signals.finished.connect(on_finished)
+        self.thread_pool.start(worker)
+
+    def _finish_background_task(self) -> None:
+        self._busy = False
+        self._refresh_action_states()
+        if self.loading_dialog is not None:
+            self.loading_dialog.accept()
+            self.loading_dialog = None
+
+    def _handle_worker_error(self, message: str) -> None:
+        safe_message = message or "Si e verificato un errore inatteso."
+        self.statusBar().showMessage(safe_message, 6000)
+        QtWidgets.QMessageBox.warning(self, "Errore TorreTray", safe_message)
+
+    @staticmethod
+    def _service_key(service: ScheduledServiceWindow | None) -> str | None:
+        if service is None:
+            return None
+        return service.key
