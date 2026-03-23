@@ -91,7 +91,7 @@ def _load_schedule() -> dict[int, tuple[ScheduledServiceWindow, ...]]:
     defaults = (
         (
             "breakfast",
-            "Schiscette da colazione",
+            "Schiscette da pranzo",
             MealType.LUNCH,
             ReservationType.LUNCHBOX,
             "08:00",
