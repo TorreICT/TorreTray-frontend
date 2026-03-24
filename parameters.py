@@ -27,16 +27,14 @@ CLOCK_DB_CREATE_QUERY = """CREATE TABLE IF NOT EXISTS "clock" (
 URL = 'https://mycollegeapp.rui.it/jsonapi?residenza=dG9ycmVzY2FsbGE-'
 URL_PARAM = 'data'
 
-LUNCH_START_TIME = "13:00"
-LAST_LUNCH_UPDATE_TIME = "13:25" # Ultimo refresh (si consiglia di lasciare 5 minuti di margine rispetto all'orario di MyCollege)
+LUNCH_START_TIME = "12:45"
+LAST_LUNCH_UPDATE_TIME = "13:40" # Ultimo refresh (si consiglia di lasciare 5 minuti di margine rispetto all'orario di MyCollege)
 LUNCH_END_TIME = "14:30" # Da qui in poi prendo i vassoi per la cena
 
-DINNER_START_TIME = "20:00"
+DINNER_START_TIME = "19:30"
 LAST_DINNER_UPDATE_TIME = "20:25" # Ultimo refresh (si consiglia di lasciare 5 minuti di margine rispetto all'orario di MyCollege)
 
-DELTA_VASSOI = "00:40"
-
-UPDATE_INTERVAL_MINUTES = "2"
+UPDATE_INTERVAL_MINUTES = "5"
 
 DB_RESET_TIME = "02:00"
 
