@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -263,17 +263,31 @@ class MainWindow(QtWidgets.QMainWindow):
             self._refresh_action_states()
 
     def _manual_refresh(self) -> None:
-        self._evaluate_schedule(force_refresh=True, show_loading=True)
+        if self._busy:
+            return
+
+        start_date, end_date = self._schedule_query_range()
+        self.statusBar().showMessage(
+            f"Aggiornamento orari dal backend: {start_date.isoformat()} -> {end_date.isoformat()}",
+            5000,
+        )
+        self._run_task(
+            task=lambda: self.client.list_meal_schedules(
+                start_date=start_date,
+                end_date=end_date,
+            ),
+            on_success=self._apply_manual_schedule_refresh,
+            loading_message="Aggiornando orari e prenotazioni...",
+        )
 
     def _refresh_schedule(self, *, force_data_refresh: bool, show_loading: bool) -> None:
         if self._busy:
             return
 
-        now = self.settings.current_datetime()
-        end_date = now.date() + timedelta(days=self.settings.schedule_lookahead_days)
+        start_date, end_date = self._schedule_query_range()
         self._run_task(
             task=lambda: self.client.list_meal_schedules(
-                start_date=now.date(),
+                start_date=start_date,
                 end_date=end_date,
             ),
             on_success=lambda windows: self._apply_schedule_windows(
@@ -296,6 +310,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self._schedule_loaded_at = self.settings.current_datetime()
         self._continue_after_schedule_refresh(force_data_refresh=force_data_refresh)
 
+    def _apply_manual_schedule_refresh(
+        self,
+        schedule_windows: list[ScheduledServiceWindow],
+    ) -> None:
+        self._schedule_windows = sorted(
+            schedule_windows,
+            key=lambda window: (window.date, window.start_time, window.key),
+        )
+        self._schedule_loaded_at = self.settings.current_datetime()
+        self._continue_manual_refresh()
+
     def _continue_after_schedule_refresh(self, *, force_data_refresh: bool) -> None:
         """Resume refresh flow after schedule loading fully releases the busy state."""
         QtCore.QTimer.singleShot(
@@ -306,6 +331,44 @@ class MainWindow(QtWidgets.QMainWindow):
                 allow_schedule_refresh=False,
             ),
         )
+
+    def _continue_manual_refresh(self) -> None:
+        """Recompute state from the latest schedule memory, then sync reservations."""
+        QtCore.QTimer.singleShot(0, self._finish_manual_refresh)
+
+    def _finish_manual_refresh(self) -> None:
+        now = self.settings.current_datetime()
+        active_service = resolve_active_service(
+            self._schedule_windows,
+            current_moment=now,
+            preload_minutes=self.settings.preload_minutes,
+        )
+        self._active_service = active_service
+        self._active_filters = (
+            active_service.filters_for() if active_service is not None else None
+        )
+
+        if active_service is None:
+            self.statusBar().showMessage(
+                "Orari aggiornati in memoria. Nessuna fascia attiva: eseguo solo la sync giornaliera.",
+                5000,
+            )
+            self._last_auto_refresh_at = None
+            self._refresh_idle_day(show_loading=False)
+            return
+
+        self._update_active_context(now, active_service)
+        self.statusBar().showMessage(
+            f"Orari aggiornati in memoria. Fascia attiva rilevata: {active_service.label}.",
+            5000,
+        )
+        self.refresh_data(sync=True, show_loading=False)
+
+    def _schedule_query_range(self) -> tuple[date, date]:
+        start_date = self.settings.current_date()
+        lookahead_days = max(1, self.settings.schedule_lookahead_days)
+        end_date = start_date + timedelta(days=lookahead_days - 1)
+        return start_date, end_date
 
     def refresh_data(self, sync: bool, show_loading: bool) -> None:
         if self._busy:
@@ -612,5 +675,5 @@ class MainWindow(QtWidgets.QMainWindow):
             self.settings.auto_refresh_minutes * 60
         ):
             return True
-        covered_until = now.date() + timedelta(days=self.settings.schedule_lookahead_days)
+        _start_date, covered_until = self._schedule_query_range()
         return not any(window.date >= covered_until for window in self._schedule_windows)
