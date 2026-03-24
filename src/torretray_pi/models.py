@@ -121,6 +121,7 @@ class Reservation:
                 continue
 
             if raw_section.get("selected") is False:
+                lines.append(f"{section_name}: NO {section_name}")
                 continue
 
             if raw_section.get("no_specific_preference"):
