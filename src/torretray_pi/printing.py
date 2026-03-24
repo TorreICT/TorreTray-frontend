@@ -30,6 +30,8 @@ class TicketPreview:
 class PrinterService:
     """Encapsulate USB ticket printing."""
 
+    _PRINTED_PREFERENCE_MAX_LENGTH = 30
+
     def __init__(self, settings: AppSettings) -> None:
         self._settings = settings
 
@@ -78,7 +80,7 @@ class PrinterService:
             printer.set(height=1, width=1, align="left")
             printer.text("\nPreferenze:\n")
             for line in ticket.preference_lines:
-                printer.text(f"{line}\n")
+                printer.text(f"{self._format_preference_line_for_print(line)}\n")
 
             printer.text("\n\n")
             printer.cut()
@@ -89,3 +91,15 @@ class PrinterService:
             raise PrinterError(
                 "Impossibile completare la stampa del ticket."
             ) from exc
+
+    @classmethod
+    def _format_preference_line_for_print(cls, line: str) -> str:
+        section, separator, content = line.partition(": ")
+        if not separator:
+            return line
+        if content == "Senza preferenze" or content.startswith("NO "):
+            return line
+        if len(content) <= cls._PRINTED_PREFERENCE_MAX_LENGTH:
+            return line
+        shortened = content[: cls._PRINTED_PREFERENCE_MAX_LENGTH - 3].rstrip()
+        return f"{section}: {shortened}..."
