@@ -15,13 +15,12 @@ from torretray_pi.config import (
     resolve_active_service,
     save_runtime_settings,
 )
-from torretray_pi.models import MealType, Reservation, ReservationFilters, ReservationType
+from torretray_pi.models import Reservation, ReservationFilters
 from torretray_pi.printing import PrinterService
 from torretray_pi.services import PrintJobResult, ReservationService, ReservationSnapshot
 from torretray_pi.ui.dialogs import (
     ConfirmationDialog,
     LoadingDialog,
-    TicketPreviewDialog,
     TraySettingsDialog,
 )
 from torretray_pi.ui.widgets import ReservationTable
@@ -174,15 +173,15 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addSpacing(10)
 
         self.print_pending_button = self._make_action_button("Stampa", "primary")
-        self.preview_button = self._make_action_button("Anteprima test", "secondary")
         self.refresh_button = self._make_action_button("Aggiorna", "secondary")
         self.settings_button = self._make_action_button("Impostazioni", "secondary")
+        self.reprint_all_button = self._make_action_button("Ristampa", "secondary")
 
         layout.addWidget(self.print_pending_button)
-        layout.addWidget(self.preview_button)
         layout.addWidget(self.refresh_button)
         layout.addWidget(self.settings_button)
         layout.addStretch()
+        layout.addWidget(self.reprint_all_button)
 
         footer_logo = QtWidgets.QLabel(panel)
         footer_logo.setAlignment(QtCore.Qt.AlignCenter)
@@ -192,11 +191,9 @@ class MainWindow(QtWidgets.QMainWindow):
         return panel
 
     def _bind_events(self) -> None:
-        self.refresh_button.clicked.connect(
-            lambda: self._evaluate_schedule(force_refresh=True, show_loading=True)
-        )
+        self.refresh_button.clicked.connect(self._manual_refresh)
         self.print_pending_button.clicked.connect(self._print_pending_batch)
-        self.preview_button.clicked.connect(self._show_ticket_preview)
+        self.reprint_all_button.clicked.connect(self._reprint_all_printed)
         self.pending_table.row_action_requested.connect(self._print_single_pending)
         self.printed_table.row_action_requested.connect(self._reprint_single)
         self.settings_button.clicked.connect(self._open_settings_dialog)
@@ -249,7 +246,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if active_service is None:
             self._last_auto_refresh_at = None
-            self._apply_idle_state(now)
+            if force_refresh:
+                self._refresh_idle_day(show_loading=show_loading)
+            else:
+                self._apply_idle_state(now)
             return
 
         self._update_active_context(now, active_service)
@@ -261,6 +261,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.refresh_data(sync=True, show_loading=show_loading)
         else:
             self._refresh_action_states()
+
+    def _manual_refresh(self) -> None:
+        self._evaluate_schedule(force_refresh=True, show_loading=True)
 
     def _refresh_schedule(self, *, force_data_refresh: bool, show_loading: bool) -> None:
         if self._busy:
@@ -291,10 +294,17 @@ class MainWindow(QtWidgets.QMainWindow):
             key=lambda window: (window.date, window.start_time, window.key),
         )
         self._schedule_loaded_at = self.settings.current_datetime()
-        self._evaluate_schedule(
-            force_refresh=force_data_refresh,
-            show_loading=False,
-            allow_schedule_refresh=False,
+        self._continue_after_schedule_refresh(force_data_refresh=force_data_refresh)
+
+    def _continue_after_schedule_refresh(self, *, force_data_refresh: bool) -> None:
+        """Resume refresh flow after schedule loading fully releases the busy state."""
+        QtCore.QTimer.singleShot(
+            0,
+            lambda: self._evaluate_schedule(
+                force_refresh=force_data_refresh,
+                show_loading=False,
+                allow_schedule_refresh=False,
+            ),
         )
 
     def refresh_data(self, sync: bool, show_loading: bool) -> None:
@@ -331,11 +341,40 @@ class MainWindow(QtWidgets.QMainWindow):
         if snapshot.unprinted:
             self._bell_player.ring()
 
-    def _apply_idle_state(self, now: datetime) -> None:
+    def _refresh_idle_day(self, *, show_loading: bool) -> None:
+        if self._busy:
+            return
+
+        target_date = self.settings.current_date()
+        self._run_task(
+            task=lambda: self.client.sync_day(target_date),
+            on_success=self._apply_idle_refresh_result,
+            loading_message="Aggiornando..." if show_loading else None,
+        )
+
+    def _apply_idle_refresh_result(self, _sync_result: object) -> None:
+        refreshed_at = self.settings.current_datetime()
+        self._apply_idle_state(refreshed_at, refreshed_at=refreshed_at)
+        self.statusBar().showMessage(
+            "Orari ricaricati e sync giornaliera completata",
+            5000,
+        )
+
+    def _apply_idle_state(
+        self,
+        now: datetime,
+        *,
+        refreshed_at: datetime | None = None,
+    ) -> None:
         self._snapshot = None
         self.pending_table.set_reservations([])
         self.printed_table.set_reservations([])
-        self.status_label.setText("Ultimo aggiornamento: N/D")
+        if refreshed_at is None:
+            self.status_label.setText("Ultimo aggiornamento: N/D")
+        else:
+            self.status_label.setText(
+                f"Ultimo aggiornamento: {refreshed_at.strftime('%d/%m/%Y %H:%M:%S')}"
+            )
 
         upcoming_service = next_service(
             self._schedule_windows,
@@ -384,8 +423,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _refresh_action_states(self) -> None:
         pending = bool(self._snapshot and self._snapshot.unprinted)
+        printed = bool(self._snapshot and self._snapshot.printed)
         self.print_pending_button.setEnabled(pending and not self._busy)
-        self.preview_button.setEnabled(not self._busy)
+        self.reprint_all_button.setEnabled(printed and not self._busy)
         self.refresh_button.setEnabled(not self._busy)
         self.settings_button.setEnabled(not self._busy)
 
@@ -450,6 +490,18 @@ class MainWindow(QtWidgets.QMainWindow):
             ),
         )
 
+    def _reprint_all_printed(self) -> None:
+        reservations = self._snapshot.printed if self._snapshot else []
+        self._start_print_job(
+            reservations=reservations,
+            mark_as_printed=False,
+            title="Conferma ristampa",
+            message=(
+                "Sei sicuro di voler ristampare tutti i ticket gia stampati?\n\n"
+                "Suggerimento: se vuoi verificare gli ultimi dati, usa prima 'Aggiorna'."
+            ),
+        )
+
     def _start_print_job(
         self,
         *,
@@ -501,74 +553,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 f"Stampati {result.printed_count} ticket.",
                 5000,
             )
-
-    def _show_ticket_preview(self) -> None:
-        filters = self._preview_filters()
-        reservation = self._preview_reservation(filters)
-        ticket = self.printer.build_ticket_preview(reservation, filters)
-        dialog = TicketPreviewDialog(
-            ticket=ticket,
-            logo_path=str(self.settings.logo_path),
-            parent=self,
-        )
-        dialog.exec_()
-
-    def _preview_filters(self) -> ReservationFilters:
-        if self._active_filters is not None:
-            return self._active_filters
-
-        now = self.settings.current_datetime()
-        upcoming_service = next_service(
-            self._schedule_windows,
-            current_moment=now,
-            preload_minutes=self.settings.preload_minutes,
-        )
-        if upcoming_service is not None:
-            service, _preload_time = upcoming_service
-            return service.filters_for()
-
-        return ReservationFilters.today(
-            meal_type=MealType.LUNCH,
-            reservation_type=ReservationType.TRAY,
-            current_date=self.settings.current_date(),
-        )
-
-    def _preview_reservation(self, filters: ReservationFilters) -> Reservation:
-        if self._snapshot is not None:
-            combined = self._snapshot.unprinted + self._snapshot.printed
-            if combined:
-                return combined[0]
-
-        sample_type: ReservationType | None = filters.reservation_type
-        return Reservation(
-            id=0,
-            user_id=0,
-            name="Mario Rossi",
-            meal_type=filters.meal_type,
-            reservation_type=sample_type,
-            diet="Vegetariano",
-            preferences={
-                "sections": [
-                    {
-                        "section_name": "Primo",
-                        "selected": True,
-                        "selected_dish": "Pasta al pomodoro",
-                    },
-                    {
-                        "section_name": "Secondo",
-                        "selected": True,
-                        "selected_dish": "Frittata alle erbe",
-                    },
-                    {
-                        "section_name": "Contorno",
-                        "selected": True,
-                        "no_specific_preference": True,
-                    },
-                ]
-            },
-            date=filters.date,
-            printed=False,
-        )
 
     def _ring_if_needed(self) -> None:
         if self._busy or self._active_service is None or self._snapshot is None:
