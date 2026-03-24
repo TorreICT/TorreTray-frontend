@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Callable
 
 from torretray_pi.backend_client import BackendClient
 from torretray_pi.models import Reservation, ReservationFilters
@@ -26,9 +27,15 @@ class PrintJobResult:
 class ReservationService:
     """Compose backend and printer operations into UI-friendly actions."""
 
-    def __init__(self, client: BackendClient, printer: PrinterService) -> None:
+    def __init__(
+        self,
+        client: BackendClient,
+        printer: PrinterService,
+        now_provider: Callable[[], datetime] | None = None,
+    ) -> None:
         self._client = client
         self._printer = printer
+        self._now_provider = now_provider or datetime.now
 
     def load_snapshot(
         self,
@@ -44,7 +51,7 @@ class ReservationService:
             filters=filters,
             unprinted=sorted(unprinted, key=lambda item: item.name.lower()),
             printed=sorted(printed, key=lambda item: item.name.lower()),
-            refreshed_at=datetime.now(),
+            refreshed_at=self._now_provider(),
             sync_result=sync_result,
         )
 

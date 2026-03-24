@@ -91,6 +91,38 @@ QDialogButtonBox QPushButton {
     padding: 8px 14px;
     border-radius: 12px;
 }
+QSpinBox {
+    min-height: 42px;
+    border-radius: 12px;
+    border: 1px solid #3b3e45;
+    background: #23252a;
+    padding: 6px 12px;
+    color: #f3f3f1;
+}
+QSpinBox::up-button, QSpinBox::down-button {
+    width: 28px;
+    border: 0;
+    background: #2b2e34;
+    border-radius: 8px;
+    margin: 4px;
+}
+QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+    background: #343840;
+}
+QCheckBox {
+    spacing: 12px;
+}
+QCheckBox::indicator {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    border: 1px solid #3b3e45;
+    background: #23252a;
+}
+QCheckBox::indicator:checked {
+    background: #ffd84d;
+    border-color: #ffd84d;
+}
 QTableWidget {
     background: #121316;
     alternate-background-color: #191b20;

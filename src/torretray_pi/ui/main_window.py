@@ -1,17 +1,29 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from torretray_pi.audio import BellPlayer
 from torretray_pi.backend_client import BackendClient
-from torretray_pi.config import AppSettings, ScheduledServiceWindow
-from torretray_pi.models import Reservation, ReservationFilters
+from torretray_pi.config import (
+    AppSettings,
+    ScheduledServiceWindow,
+    load_settings,
+    next_service,
+    resolve_active_service,
+    save_runtime_settings,
+)
+from torretray_pi.models import MealType, Reservation, ReservationFilters, ReservationType
 from torretray_pi.printing import PrinterService
 from torretray_pi.services import PrintJobResult, ReservationService, ReservationSnapshot
-from torretray_pi.ui.dialogs import ConfirmationDialog, LoadingDialog
+from torretray_pi.ui.dialogs import (
+    ConfirmationDialog,
+    LoadingDialog,
+    TicketPreviewDialog,
+    TraySettingsDialog,
+)
 from torretray_pi.ui.widgets import ReservationTable
 
 
@@ -51,18 +63,23 @@ class MainWindow(QtWidgets.QMainWindow):
             base_url=settings.api_base_url,
             timeout_seconds=settings.request_timeout_seconds,
         )
+        self.printer = PrinterService(settings)
         self.service = ReservationService(
             client=self.client,
-            printer=PrinterService(settings),
+            printer=self.printer,
+            now_provider=settings.current_datetime,
         )
         self.thread_pool = QtCore.QThreadPool(self)
         self.loading_dialog: LoadingDialog | None = None
         self._bell_player = BellPlayer(sound_path=settings.bell_sound_path, parent=self)
+        self._bell_player.set_muted(settings.bell_muted)
         self._busy = False
         self._snapshot: ReservationSnapshot | None = None
         self._active_service: ScheduledServiceWindow | None = None
         self._active_filters: ReservationFilters | None = None
         self._last_auto_refresh_at: datetime | None = None
+        self._schedule_windows: list[ScheduledServiceWindow] = []
+        self._schedule_loaded_at: datetime | None = None
 
         self._build_ui()
         self._bind_events()
@@ -157,10 +174,14 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addSpacing(10)
 
         self.print_pending_button = self._make_action_button("Stampa", "primary")
+        self.preview_button = self._make_action_button("Anteprima test", "secondary")
         self.refresh_button = self._make_action_button("Aggiorna", "secondary")
+        self.settings_button = self._make_action_button("Impostazioni", "secondary")
 
         layout.addWidget(self.print_pending_button)
+        layout.addWidget(self.preview_button)
         layout.addWidget(self.refresh_button)
+        layout.addWidget(self.settings_button)
         layout.addStretch()
 
         footer_logo = QtWidgets.QLabel(panel)
@@ -175,8 +196,10 @@ class MainWindow(QtWidgets.QMainWindow):
             lambda: self._evaluate_schedule(force_refresh=True, show_loading=True)
         )
         self.print_pending_button.clicked.connect(self._print_pending_batch)
+        self.preview_button.clicked.connect(self._show_ticket_preview)
         self.pending_table.row_action_requested.connect(self._print_single_pending)
         self.printed_table.row_action_requested.connect(self._reprint_single)
+        self.settings_button.clicked.connect(self._open_settings_dialog)
 
     def _setup_timers(self) -> None:
         self.schedule_timer = QtCore.QTimer(self)
@@ -198,16 +221,30 @@ class MainWindow(QtWidgets.QMainWindow):
         button.setProperty("variant", variant)
         return button
 
-    def _evaluate_schedule(self, *, force_refresh: bool, show_loading: bool) -> None:
-        now = datetime.now()
-        active_service = self.settings.resolve_active_service(now)
+    def _evaluate_schedule(
+        self,
+        *,
+        force_refresh: bool,
+        show_loading: bool,
+        allow_schedule_refresh: bool = True,
+    ) -> None:
+        now = self.settings.current_datetime()
+        if allow_schedule_refresh and self._schedule_refresh_needed(now, force_refresh):
+            self._refresh_schedule(force_data_refresh=force_refresh, show_loading=show_loading)
+            return
+
+        active_service = resolve_active_service(
+            self._schedule_windows,
+            current_moment=now,
+            preload_minutes=self.settings.preload_minutes,
+        )
         service_changed = self._service_key(active_service) != self._service_key(
             self._active_service
         )
 
         self._active_service = active_service
         self._active_filters = (
-            active_service.filters_for(now.date()) if active_service is not None else None
+            active_service.filters_for() if active_service is not None else None
         )
 
         if active_service is None:
@@ -225,11 +262,46 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self._refresh_action_states()
 
+    def _refresh_schedule(self, *, force_data_refresh: bool, show_loading: bool) -> None:
+        if self._busy:
+            return
+
+        now = self.settings.current_datetime()
+        end_date = now.date() + timedelta(days=self.settings.schedule_lookahead_days)
+        self._run_task(
+            task=lambda: self.client.list_meal_schedules(
+                start_date=now.date(),
+                end_date=end_date,
+            ),
+            on_success=lambda windows: self._apply_schedule_windows(
+                windows,
+                force_data_refresh=force_data_refresh,
+            ),
+            loading_message="Caricando orari..." if show_loading else None,
+        )
+
+    def _apply_schedule_windows(
+        self,
+        schedule_windows: list[ScheduledServiceWindow],
+        *,
+        force_data_refresh: bool,
+    ) -> None:
+        self._schedule_windows = sorted(
+            schedule_windows,
+            key=lambda window: (window.date, window.start_time, window.key),
+        )
+        self._schedule_loaded_at = self.settings.current_datetime()
+        self._evaluate_schedule(
+            force_refresh=force_data_refresh,
+            show_loading=False,
+            allow_schedule_refresh=False,
+        )
+
     def refresh_data(self, sync: bool, show_loading: bool) -> None:
         if self._busy:
             return
         if self._active_filters is None:
-            self._apply_idle_state(datetime.now())
+            self._apply_idle_state(self.settings.current_datetime())
             return
 
         self._run_task(
@@ -265,21 +337,27 @@ class MainWindow(QtWidgets.QMainWindow):
         self.printed_table.set_reservations([])
         self.status_label.setText("Ultimo aggiornamento: N/D")
 
-        next_service = self.settings.next_service(now)
-        if next_service is None:
+        upcoming_service = next_service(
+            self._schedule_windows,
+            current_moment=now,
+            preload_minutes=self.settings.preload_minutes,
+        )
+        if upcoming_service is None:
             self.context_label.setText("Fuori fascia oraria automatica.")
             self.mode_description.setText(
                 "Nessuna fascia configurata disponibile nei prossimi giorni."
             )
         else:
-            service, preload_time = next_service
+            service, preload_time = upcoming_service
             self.context_label.setText(
                 f"Fuori fascia oraria. Prossimo caricamento: {service.label} alle "
                 f"{preload_time.strftime('%H:%M')}."
             )
             self.mode_description.setText(
-                "L'app carica automaticamente i ticket 5 minuti prima del pasto "
-                "e li aggiorna ogni 5 minuti fino a fine fascia."
+                "L'app carica automaticamente i ticket "
+                f"{self.settings.preload_minutes} minuti prima del pasto "
+                f"e li aggiorna ogni {self.settings.auto_refresh_minutes} minuti "
+                "fino a fine fascia."
             )
         self.statusBar().showMessage("Fuori fascia oraria automatica", 3000)
         self._refresh_action_states()
@@ -289,7 +367,7 @@ class MainWindow(QtWidgets.QMainWindow):
         current_moment: datetime,
         active_service: ScheduledServiceWindow,
     ) -> None:
-        if current_moment < active_service.starts_at(current_moment.date()):
+        if current_moment < active_service.starts_at():
             phase_label = "Precaricamento attivo"
         else:
             phase_label = "Fascia attiva"
@@ -299,14 +377,44 @@ class MainWindow(QtWidgets.QMainWindow):
             f"{active_service.end_time.strftime('%H:%M')}."
         )
         self.mode_description.setText(
-            "Caricamento automatico 5 minuti prima del pasto e refresh "
+            f"Caricamento automatico {self.settings.preload_minutes} minuti "
+            "prima del pasto e refresh "
             f"ogni {self.settings.auto_refresh_minutes} minuti finche ci sono ticket."
         )
 
     def _refresh_action_states(self) -> None:
         pending = bool(self._snapshot and self._snapshot.unprinted)
         self.print_pending_button.setEnabled(pending and not self._busy)
+        self.preview_button.setEnabled(not self._busy)
         self.refresh_button.setEnabled(not self._busy)
+        self.settings_button.setEnabled(not self._busy)
+
+    def _open_settings_dialog(self) -> None:
+        dialog = TraySettingsDialog(settings=self.settings, parent=self)
+        if dialog.exec_() != QtWidgets.QDialog.Accepted:
+            self.statusBar().showMessage("Nessuna impostazione modificata.", 3000)
+            return
+
+        values = dialog.values()
+        save_runtime_settings(
+            self.settings.project_root,
+            auto_refresh_minutes=values["auto_refresh_minutes"],
+            preload_minutes=values["preload_minutes"],
+            schedule_lookahead_days=values["schedule_lookahead_days"],
+            bell_interval_seconds=values["bell_interval_seconds"],
+            bell_muted=values["bell_muted"],
+        )
+
+        self.settings = load_settings(test_now_override=self.settings.test_now)
+        self.service = ReservationService(
+            client=self.client,
+            printer=self.printer,
+            now_provider=self.settings.current_datetime,
+        )
+        self.bell_timer.setInterval(self.settings.bell_interval_seconds * 1000)
+        self._bell_player.set_muted(self.settings.bell_muted)
+        self.statusBar().showMessage("Impostazioni salvate correttamente.", 5000)
+        self._evaluate_schedule(force_refresh=True, show_loading=False)
 
     def _print_pending_batch(self) -> None:
         reservations = self._snapshot.unprinted if self._snapshot else []
@@ -314,7 +422,10 @@ class MainWindow(QtWidgets.QMainWindow):
             reservations=reservations,
             mark_as_printed=True,
             title="Conferma stampa",
-            message="Sei sicuro di voler stampare tutti i ticket da stampare?",
+            message=(
+                "Sei sicuro di voler stampare tutti i ticket da stampare?\n\n"
+                "Suggerimento: usa prima 'Aggiorna' per sincronizzare gli ultimi dati."
+            ),
         )
 
     def _print_single_pending(self, reservation: Reservation) -> None:
@@ -322,7 +433,10 @@ class MainWindow(QtWidgets.QMainWindow):
             reservations=[reservation],
             mark_as_printed=True,
             title="Conferma stampa",
-            message=f"Stampare il ticket per {reservation.name}?",
+            message=(
+                f"Stampare il ticket per {reservation.name}?\n\n"
+                "Suggerimento: usa prima 'Aggiorna' per sincronizzare gli ultimi dati."
+            ),
         )
 
     def _reprint_single(self, reservation: Reservation) -> None:
@@ -330,7 +444,10 @@ class MainWindow(QtWidgets.QMainWindow):
             reservations=[reservation],
             mark_as_printed=False,
             title="Conferma ristampa",
-            message=f"Ristampare il ticket per {reservation.name}?",
+            message=(
+                f"Ristampare il ticket per {reservation.name}?\n\n"
+                "Suggerimento: se vuoi verificare gli ultimi dati, usa prima 'Aggiorna'."
+            ),
         )
 
     def _start_print_job(
@@ -385,6 +502,74 @@ class MainWindow(QtWidgets.QMainWindow):
                 5000,
             )
 
+    def _show_ticket_preview(self) -> None:
+        filters = self._preview_filters()
+        reservation = self._preview_reservation(filters)
+        ticket = self.printer.build_ticket_preview(reservation, filters)
+        dialog = TicketPreviewDialog(
+            ticket=ticket,
+            logo_path=str(self.settings.logo_path),
+            parent=self,
+        )
+        dialog.exec_()
+
+    def _preview_filters(self) -> ReservationFilters:
+        if self._active_filters is not None:
+            return self._active_filters
+
+        now = self.settings.current_datetime()
+        upcoming_service = next_service(
+            self._schedule_windows,
+            current_moment=now,
+            preload_minutes=self.settings.preload_minutes,
+        )
+        if upcoming_service is not None:
+            service, _preload_time = upcoming_service
+            return service.filters_for()
+
+        return ReservationFilters.today(
+            meal_type=MealType.LUNCH,
+            reservation_type=ReservationType.TRAY,
+            current_date=self.settings.current_date(),
+        )
+
+    def _preview_reservation(self, filters: ReservationFilters) -> Reservation:
+        if self._snapshot is not None:
+            combined = self._snapshot.unprinted + self._snapshot.printed
+            if combined:
+                return combined[0]
+
+        sample_type: ReservationType | None = filters.reservation_type
+        return Reservation(
+            id=0,
+            user_id=0,
+            name="Mario Rossi",
+            meal_type=filters.meal_type,
+            reservation_type=sample_type,
+            diet="Vegetariano",
+            preferences={
+                "sections": [
+                    {
+                        "section_name": "Primo",
+                        "selected": True,
+                        "selected_dish": "Pasta al pomodoro",
+                    },
+                    {
+                        "section_name": "Secondo",
+                        "selected": True,
+                        "selected_dish": "Frittata alle erbe",
+                    },
+                    {
+                        "section_name": "Contorno",
+                        "selected": True,
+                        "no_specific_preference": True,
+                    },
+                ]
+            },
+            date=filters.date,
+            printed=False,
+        )
+
     def _ring_if_needed(self) -> None:
         if self._busy or self._active_service is None or self._snapshot is None:
             return
@@ -434,4 +619,14 @@ class MainWindow(QtWidgets.QMainWindow):
     def _service_key(service: ScheduledServiceWindow | None) -> str | None:
         if service is None:
             return None
-        return service.key
+        return f"{service.date.isoformat()}:{service.key}"
+
+    def _schedule_refresh_needed(self, now: datetime, force_refresh: bool) -> bool:
+        if force_refresh or not self._schedule_windows or self._schedule_loaded_at is None:
+            return True
+        if (now - self._schedule_loaded_at).total_seconds() >= (
+            self.settings.auto_refresh_minutes * 60
+        ):
+            return True
+        covered_until = now.date() + timedelta(days=self.settings.schedule_lookahead_days)
+        return not any(window.date >= covered_until for window in self._schedule_windows)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from datetime import datetime
 
 from PyQt5 import QtGui, QtWidgets
 
@@ -9,9 +10,9 @@ from torretray_pi.ui.main_window import MainWindow
 from torretray_pi.ui.styles import apply_app_style
 
 
-def run() -> int:
+def run(*, test_now_override: datetime | None = None) -> int:
     """Start the Qt application."""
-    settings = load_settings()
+    settings = load_settings(test_now_override=test_now_override)
 
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("TorreTray")

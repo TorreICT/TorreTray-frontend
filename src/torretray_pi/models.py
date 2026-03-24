@@ -44,9 +44,10 @@ class ReservationFilters:
         *,
         meal_type: MealType,
         reservation_type: ReservationType,
+        current_date: date | None = None,
     ) -> "ReservationFilters":
         return cls(
-            date=date.today(),
+            date=current_date or date.today(),
             meal_type=meal_type,
             reservation_type=reservation_type,
         )

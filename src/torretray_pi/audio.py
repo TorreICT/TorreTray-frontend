@@ -25,6 +25,7 @@ class BellPlayer(QtCore.QObject):
         super().__init__(parent)
         self._sound_path = sound_path
         self._sound_effect = None
+        self._muted = False
 
         if QtMultimedia is not None:
             effect = QtMultimedia.QSoundEffect(self)
@@ -32,7 +33,17 @@ class BellPlayer(QtCore.QObject):
             effect.setVolume(0.9)
             self._sound_effect = effect
 
+    def set_muted(self, muted: bool) -> None:
+        """Enable or disable bell playback."""
+        self._muted = muted
+
+    @property
+    def muted(self) -> bool:
+        return self._muted
+
     def ring(self) -> None:
+        if self._muted:
+            return
         if self._sound_effect is not None:
             self._sound_effect.play()
             return

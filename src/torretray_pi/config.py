@@ -4,23 +4,14 @@ import os
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from typing import Iterable
 
 from torretray_pi.models import MealType, ReservationFilters, ReservationType
 
 
-WEEKDAY_NAMES = (
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-)
-
-
 @dataclass(frozen=True)
 class ScheduledServiceWindow:
+    date: date
     key: str
     label: str
     meal_type: MealType
@@ -28,21 +19,21 @@ class ScheduledServiceWindow:
     start_time: time
     end_time: time
 
-    def filters_for(self, target_date: date) -> ReservationFilters:
+    def filters_for(self) -> ReservationFilters:
         return ReservationFilters(
-            date=target_date,
+            date=self.date,
             meal_type=self.meal_type,
             reservation_type=self.reservation_type,
         )
 
-    def starts_at(self, target_date: date) -> datetime:
-        return datetime.combine(target_date, self.start_time)
+    def starts_at(self) -> datetime:
+        return datetime.combine(self.date, self.start_time)
 
-    def ends_at(self, target_date: date) -> datetime:
-        return datetime.combine(target_date, self.end_time)
+    def ends_at(self) -> datetime:
+        return datetime.combine(self.date, self.end_time)
 
-    def preload_starts_at(self, target_date: date, preload_minutes: int) -> datetime:
-        return self.starts_at(target_date) - timedelta(minutes=preload_minutes)
+    def preload_starts_at(self, preload_minutes: int) -> datetime:
+        return self.starts_at() - timedelta(minutes=preload_minutes)
 
 
 def _load_env_file(project_root: Path) -> None:
@@ -60,6 +51,57 @@ def _load_env_file(project_root: Path) -> None:
         os.environ.setdefault(key, value)
 
 
+def save_runtime_settings(
+    project_root: Path,
+    *,
+    auto_refresh_minutes: int,
+    preload_minutes: int,
+    schedule_lookahead_days: int,
+    bell_interval_seconds: int,
+    bell_muted: bool,
+) -> None:
+    """Persist the editable runtime settings to the local tray `.env` file."""
+    env_path = project_root / ".env"
+    updates = {
+        "TORRETRAY_AUTO_REFRESH_MINUTES": str(max(1, auto_refresh_minutes)),
+        "TORRETRAY_PRELOAD_MINUTES": str(max(0, preload_minutes)),
+        "TORRETRAY_SCHEDULE_LOOKAHEAD_DAYS": str(max(1, schedule_lookahead_days)),
+        "TORRETRAY_BELL_INTERVAL_SECONDS": str(max(15, bell_interval_seconds)),
+        "TORRETRAY_BELL_MUTED": "true" if bell_muted else "false",
+    }
+
+    existing_lines = (
+        env_path.read_text(encoding="utf-8").splitlines()
+        if env_path.exists()
+        else []
+    )
+    updated_lines: list[str] = []
+    seen_keys: set[str] = set()
+
+    for raw_line in existing_lines:
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in raw_line:
+            updated_lines.append(raw_line)
+            continue
+
+        key, _value = raw_line.split("=", 1)
+        normalized_key = key.strip()
+        if normalized_key not in updates:
+            updated_lines.append(raw_line)
+            continue
+
+        updated_lines.append(f"{normalized_key}={updates[normalized_key]}")
+        seen_keys.add(normalized_key)
+
+    for key, value in updates.items():
+        if key not in seen_keys:
+            updated_lines.append(f"{key}={value}")
+
+    env_path.write_text("\n".join(updated_lines).rstrip() + "\n", encoding="utf-8")
+    for key, value in updates.items():
+        os.environ[key] = value
+
+
 def _get_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None:
@@ -74,65 +116,6 @@ def _get_int(name: str, default: int) -> int:
     return int(value, 0)
 
 
-def _get_time(name: str, default: str) -> time:
-    value = os.getenv(name, default).strip()
-    return datetime.strptime(value, "%H:%M").time()
-
-
-def _slot_time(slot: str, edge: str, weekday_name: str, default: str) -> time:
-    specific_key = f"TORRETRAY_{slot.upper()}_{edge.upper()}_{weekday_name.upper()}"
-    base_key = f"TORRETRAY_{slot.upper()}_{edge.upper()}"
-    if os.getenv(specific_key):
-        return _get_time(specific_key, default)
-    return _get_time(base_key, default)
-
-
-def _load_schedule() -> dict[int, tuple[ScheduledServiceWindow, ...]]:
-    defaults = (
-        (
-            "breakfast",
-            "Schiscette da pranzo",
-            MealType.LUNCH,
-            ReservationType.LUNCHBOX,
-            "08:00",
-            "08:45",
-        ),
-        (
-            "lunch",
-            "Vassoi del pranzo",
-            MealType.LUNCH,
-            ReservationType.TRAY,
-            "13:00",
-            "14:30",
-        ),
-        (
-            "dinner",
-            "Vassoi della cena",
-            MealType.DINNER,
-            ReservationType.TRAY,
-            "20:00",
-            "21:00",
-        ),
-    )
-
-    schedule: dict[int, tuple[ScheduledServiceWindow, ...]] = {}
-    for weekday_index, weekday_name in enumerate(WEEKDAY_NAMES):
-        windows: list[ScheduledServiceWindow] = []
-        for key, label, meal_type, reservation_type, start_default, end_default in defaults:
-            windows.append(
-                ScheduledServiceWindow(
-                    key=key,
-                    label=label,
-                    meal_type=meal_type,
-                    reservation_type=reservation_type,
-                    start_time=_slot_time(key, "start", weekday_name, start_default),
-                    end_time=_slot_time(key, "end", weekday_name, end_default),
-                )
-            )
-        schedule[weekday_index] = tuple(windows)
-    return schedule
-
-
 @dataclass(frozen=True)
 class AppSettings:
     project_root: Path
@@ -141,16 +124,18 @@ class AppSettings:
     request_timeout_seconds: float
     auto_refresh_minutes: int
     preload_minutes: int
+    schedule_lookahead_days: int
     bell_interval_seconds: int
+    bell_muted: bool
     start_fullscreen: bool
     printer_vendor_id: int
     printer_product_id: int
     printer_interface: int
-    schedule_by_weekday: dict[int, tuple[ScheduledServiceWindow, ...]]
+    test_now: datetime | None
 
     @property
     def logo_path(self) -> Path:
-        return self.image_dir / "logo-torre-mono-medium.png"
+        return self.image_dir / "logo-torre-mono-small.png"
 
     @property
     def footer_logo_path(self) -> Path:
@@ -172,31 +157,47 @@ class AppSettings:
     def bell_sound_path(self) -> Path:
         return self.project_root / "res" / "glass_ping.wav"
 
-    def resolve_active_service(
-        self,
-        current_moment: datetime | None = None,
-    ) -> ScheduledServiceWindow | None:
-        now = current_moment or datetime.now()
-        for window in self.schedule_by_weekday.get(now.weekday(), ()):
-            if window.preload_starts_at(now.date(), self.preload_minutes) <= now <= window.ends_at(now.date()):
-                return window
-        return None
+    def current_datetime(self) -> datetime:
+        return self.test_now or datetime.now()
 
-    def next_service(
-        self,
-        current_moment: datetime | None = None,
-    ) -> tuple[ScheduledServiceWindow, datetime] | None:
-        now = current_moment or datetime.now()
-        for day_offset in range(0, 8):
-            target_date = now.date() + timedelta(days=day_offset)
-            for window in self.schedule_by_weekday.get(target_date.weekday(), ()):
-                preload_time = window.preload_starts_at(target_date, self.preload_minutes)
-                if preload_time > now:
-                    return window, preload_time
-        return None
+    def current_date(self) -> date:
+        return self.current_datetime().date()
 
 
-def load_settings() -> AppSettings:
+def resolve_active_service(
+    schedule_windows: Iterable[ScheduledServiceWindow],
+    *,
+    current_moment: datetime,
+    preload_minutes: int,
+) -> ScheduledServiceWindow | None:
+    """Return the currently active service window, if any."""
+    for window in sorted(
+        schedule_windows,
+        key=lambda item: item.preload_starts_at(preload_minutes),
+    ):
+        if window.preload_starts_at(preload_minutes) <= current_moment <= window.ends_at():
+            return window
+    return None
+
+
+def next_service(
+    schedule_windows: Iterable[ScheduledServiceWindow],
+    *,
+    current_moment: datetime,
+    preload_minutes: int,
+) -> tuple[ScheduledServiceWindow, datetime] | None:
+    """Return the next upcoming service window and its preload start."""
+    for window in sorted(
+        schedule_windows,
+        key=lambda item: item.preload_starts_at(preload_minutes),
+    ):
+        preload_time = window.preload_starts_at(preload_minutes)
+        if preload_time > current_moment:
+            return window, preload_time
+    return None
+
+
+def load_settings(*, test_now_override: datetime | None = None) -> AppSettings:
     project_root = Path(__file__).resolve().parents[2]
     _load_env_file(project_root)
 
@@ -209,10 +210,12 @@ def load_settings() -> AppSettings:
         ),
         auto_refresh_minutes=max(1, _get_int("TORRETRAY_AUTO_REFRESH_MINUTES", 5)),
         preload_minutes=max(0, _get_int("TORRETRAY_PRELOAD_MINUTES", 5)),
+        schedule_lookahead_days=max(1, _get_int("TORRETRAY_SCHEDULE_LOOKAHEAD_DAYS", 7)),
         bell_interval_seconds=max(15, _get_int("TORRETRAY_BELL_INTERVAL_SECONDS", 60)),
+        bell_muted=_get_bool("TORRETRAY_BELL_MUTED", False),
         start_fullscreen=_get_bool("TORRETRAY_START_FULLSCREEN", True),
         printer_vendor_id=_get_int("TORRETRAY_PRINTER_VENDOR_ID", 0x1FC9),
         printer_product_id=_get_int("TORRETRAY_PRINTER_PRODUCT_ID", 0x2016),
         printer_interface=_get_int("TORRETRAY_PRINTER_INTERFACE", 0),
-        schedule_by_weekday=_load_schedule(),
+        test_now=test_now_override,
     )

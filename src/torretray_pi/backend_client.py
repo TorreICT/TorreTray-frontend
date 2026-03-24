@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 import requests
 
-from torretray_pi.models import Reservation, ReservationFilters
+from torretray_pi.config import ScheduledServiceWindow
+from torretray_pi.models import MealType, Reservation, ReservationFilters, ReservationType
 
 
 class BackendClientError(RuntimeError):
@@ -50,6 +51,65 @@ class BackendClient:
             for item in payload
             if isinstance(item, dict)
         ]
+
+    def list_meal_schedules(
+        self,
+        *,
+        start_date: date,
+        end_date: date,
+    ) -> list[ScheduledServiceWindow]:
+        payload = self._request(
+            "GET",
+            "/meal-schedules",
+            params={
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+            },
+        )
+        if not isinstance(payload, list):
+            raise BackendClientError(
+                "Il backend ha restituito gli orari pasti in un formato inatteso."
+            )
+
+        windows: list[ScheduledServiceWindow] = []
+        for raw_day in payload:
+            if not isinstance(raw_day, dict):
+                continue
+            raw_date = raw_day.get("date")
+            raw_windows = raw_day.get("windows", [])
+            if not isinstance(raw_date, str):
+                continue
+            try:
+                target_date = date.fromisoformat(raw_date)
+            except ValueError:
+                continue
+
+            for raw_window in raw_windows:
+                if not isinstance(raw_window, dict):
+                    continue
+                try:
+                    windows.append(
+                        ScheduledServiceWindow(
+                            date=target_date,
+                            key=str(raw_window["service_key"]),
+                            label=str(raw_window["label"]),
+                            meal_type=MealType(str(raw_window["meal_type"])),
+                            reservation_type=ReservationType(
+                                str(raw_window["reservation_type"])
+                            ),
+                            start_time=datetime.strptime(
+                                str(raw_window["start_time"]),
+                                "%H:%M",
+                            ).time(),
+                            end_time=datetime.strptime(
+                                str(raw_window["end_time"]),
+                                "%H:%M",
+                            ).time(),
+                        )
+                    )
+                except (KeyError, TypeError, ValueError):
+                    continue
+        return windows
 
     def mark_printed(self, meal_status_id: int) -> None:
         self._request("PATCH", f"/meal-status/{meal_status_id}/printed")
