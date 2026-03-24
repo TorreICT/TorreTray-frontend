@@ -30,7 +30,7 @@ class TicketPreview:
 class PrinterService:
     """Encapsulate USB ticket printing."""
 
-    _PRINTED_PREFERENCE_MAX_LENGTH = 30
+    _PRINTED_PREFERENCE_MAX_LENGTH = 40
 
     def __init__(self, settings: AppSettings) -> None:
         self._settings = settings
