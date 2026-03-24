@@ -150,6 +150,10 @@ class AppSettings:
         return self.image_dir / "printer.png"
 
     @property
+    def cancel_icon_path(self) -> Path:
+        return self.image_dir / "cancel.png"
+
+    @property
     def loading_gif_path(self) -> Path:
         return self.image_dir / "upload_2.gif"
 

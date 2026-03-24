@@ -134,6 +134,9 @@ class MainWindow(QtWidgets.QMainWindow):
             title="Da stampare:",
             action_icon_path=str(self.settings.printer_icon_path),
             action_tooltip="Stampa ticket",
+            secondary_action_icon_path=str(self.settings.cancel_icon_path),
+            secondary_action_tooltip="Annulla prenotazione",
+            secondary_action_role="danger",
             parent=wrapper,
         )
         self.printed_table = ReservationTable(
@@ -194,8 +197,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.refresh_button.clicked.connect(self._manual_refresh)
         self.print_pending_button.clicked.connect(self._print_pending_batch)
         self.reprint_all_button.clicked.connect(self._reprint_all_printed)
-        self.pending_table.row_action_requested.connect(self._print_single_pending)
-        self.printed_table.row_action_requested.connect(self._reprint_single)
+        self.pending_table.primary_action_requested.connect(self._print_single_pending)
+        self.pending_table.secondary_action_requested.connect(self._cancel_single_pending)
+        self.printed_table.primary_action_requested.connect(self._reprint_single)
         self.settings_button.clicked.connect(self._open_settings_dialog)
 
     def _setup_timers(self) -> None:
@@ -214,7 +218,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _make_action_button(self, label: str, variant: str) -> QtWidgets.QPushButton:
         button = QtWidgets.QPushButton(label, self)
         button.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
-        button.setMinimumHeight(80)
+        button.setMinimumHeight(98)
         button.setProperty("variant", variant)
         return button
 
@@ -551,6 +555,39 @@ class MainWindow(QtWidgets.QMainWindow):
                 f"Ristampare il ticket per {reservation.name}?\n\n"
                 "Suggerimento: se vuoi verificare gli ultimi dati, usa prima 'Aggiorna'."
             ),
+        )
+
+    def _cancel_single_pending(self, reservation: Reservation) -> None:
+        if not reservation.is_pending:
+            self.statusBar().showMessage(
+                "Solo le prenotazioni non ancora stampate possono essere annullate.",
+                4000,
+            )
+            return
+
+        dialog = ConfirmationDialog(
+            title="Conferma annullamento",
+            message=(
+                f"Annullare la prenotazione per {reservation.name}?\n\n"
+                "La prenotazione verra rimossa dalla lista operativa del tray."
+            ),
+            parent=self,
+        )
+        if dialog.exec_() != QtWidgets.QDialog.Accepted:
+            self.statusBar().showMessage("Operazione annullata.", 3000)
+            return
+
+        self._run_task(
+            task=lambda: self.service.cancel_reservation(reservation),
+            on_success=lambda _result: self.statusBar().showMessage(
+                f"Prenotazione annullata per {reservation.name}.",
+                5000,
+            ),
+            on_finished=lambda: self._evaluate_schedule(
+                force_refresh=True,
+                show_loading=False,
+            ),
+            loading_message="Annullando prenotazione...",
         )
 
     def _reprint_all_printed(self) -> None:

@@ -40,11 +40,11 @@ QLabel#contextLabel {
     color: #b9bcc3;
 }
 QPushButton {
-    min-height: 48px;
+    min-height: 56px;
     border-radius: 14px;
     border: 1px solid #3b3e45;
     background: #23252a;
-    padding: 10px 14px;
+    padding: 14px 18px;
     font-weight: 700;
     color: #f3f3f1;
 }
@@ -77,12 +77,36 @@ QPushButton[variant="filter"]:checked {
     border-color: #ffd84d;
 }
 QPushButton[compact="true"] {
-    min-height: 32px;
-    min-width: 32px;
-    max-height: 32px;
-    max-width: 48px;
-    padding: 4px;
-    border-radius: 10px;
+    min-height: 60px;
+    min-width: 54px;
+    padding: 0px;
+    border-radius: 12px;
+    background: #3a3d44;
+    border-color: #666b74;
+}
+QPushButton[compact="true"]:hover {
+    background: #4a4e56;
+    border-color: #ffd84d;
+}
+QPushButton[compact="true"][actionRole="danger"] {
+    background: #4a3537;
+    border-color: #8f5d62;
+}
+QPushButton[compact="true"][actionRole="danger"]:hover {
+    background: #5a4043;
+    border-color: #ff8f8f;
+}
+QWidget#reservationNameCell {
+    background: transparent;
+}
+QLabel#reservationNameLabel {
+    font-size: 12.5pt;
+    font-weight: 600;
+    color: #f3f3f1;
+    padding-left: 2px;
+}
+QWidget#reservationActionCell {
+    background: transparent;
 }
 QDialogButtonBox QPushButton {
     min-height: 38px;
@@ -140,9 +164,6 @@ QHeaderView::section {
     border-bottom: 1px solid #343840;
     padding: 12px 8px;
     font-weight: 700;
-}
-QTableWidget::item {
-    padding: 16px 14px;
 }
 QScrollBar:vertical {
     background: #16181c;

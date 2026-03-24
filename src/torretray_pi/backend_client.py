@@ -6,7 +6,13 @@ from typing import Any
 import requests
 
 from torretray_pi.config import ScheduledServiceWindow
-from torretray_pi.models import MealType, Reservation, ReservationFilters, ReservationType
+from torretray_pi.models import (
+    MealType,
+    Reservation,
+    ReservationFilters,
+    ReservationStatus,
+    ReservationType,
+)
 
 
 class BackendClientError(RuntimeError):
@@ -114,18 +120,30 @@ class BackendClient:
     def mark_printed(self, meal_status_id: int) -> None:
         self._request("PATCH", f"/meal-status/{meal_status_id}/printed")
 
+    def update_status(self, meal_status_id: int, status: ReservationStatus) -> None:
+        self._request(
+            "PATCH",
+            f"/meal-status/{meal_status_id}/status",
+            json_body={"status": status.value},
+        )
+
+    def cancel_reservation(self, meal_status_id: int) -> None:
+        self.update_status(meal_status_id, ReservationStatus.CANCELLED)
+
     def _request(
         self,
         method: str,
         path: str,
         *,
         params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
     ) -> Any:
         try:
             response = requests.request(
                 method=method,
                 url=f"{self._base_url}{path}",
                 params=params,
+                json=json_body,
                 timeout=self._timeout_seconds,
             )
         except requests.RequestException as exc:

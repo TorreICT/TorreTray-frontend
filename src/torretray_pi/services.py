@@ -45,8 +45,8 @@ class ReservationService:
     ) -> ReservationSnapshot:
         sync_result = self._client.sync_day(filters.date) if sync else None
         reservations = self._client.list_reservations(filters)
-        unprinted = [reservation for reservation in reservations if not reservation.printed]
-        printed = [reservation for reservation in reservations if reservation.printed]
+        unprinted = [reservation for reservation in reservations if reservation.is_pending]
+        printed = [reservation for reservation in reservations if reservation.is_printed]
         return ReservationSnapshot(
             filters=filters,
             unprinted=sorted(unprinted, key=lambda item: item.name.lower()),
@@ -68,7 +68,7 @@ class ReservationService:
         for reservation in reservations:
             self._printer.print_ticket(reservation, filters)
             printed_count += 1
-            if mark_as_printed and not reservation.printed:
+            if mark_as_printed and reservation.is_pending:
                 self._client.mark_printed(reservation.id)
                 marked_count += 1
 
@@ -76,3 +76,6 @@ class ReservationService:
             printed_count=printed_count,
             marked_count=marked_count,
         )
+
+    def cancel_reservation(self, reservation: Reservation) -> None:
+        self._client.cancel_reservation(reservation.id)

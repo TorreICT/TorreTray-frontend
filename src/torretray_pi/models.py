@@ -32,6 +32,12 @@ class ReservationType(str, Enum):
         )
 
 
+class ReservationStatus(str, Enum):
+    NONE = "none"
+    PRINTED = "printed"
+    CANCELLED = "cancelled"
+
+
 @dataclass(frozen=True)
 class ReservationFilters:
     date: date
@@ -63,7 +69,7 @@ class Reservation:
     diet: str | None
     preferences: dict[str, Any] | None
     date: date
-    printed: bool
+    status: ReservationStatus
 
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> "Reservation":
@@ -77,8 +83,20 @@ class Reservation:
             diet=payload.get("diet"),
             preferences=payload.get("preferences"),
             date=date.fromisoformat(payload["date"]),
-            printed=bool(payload["printed"]),
+            status=ReservationStatus(str(payload["status"])),
         )
+
+    @property
+    def is_pending(self) -> bool:
+        return self.status is ReservationStatus.NONE
+
+    @property
+    def is_printed(self) -> bool:
+        return self.status is ReservationStatus.PRINTED
+
+    @property
+    def is_cancelled(self) -> bool:
+        return self.status is ReservationStatus.CANCELLED
 
     @property
     def diet_label(self) -> str:
