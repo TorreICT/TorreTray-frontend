@@ -175,6 +175,16 @@ QPushButton[toggleRole="bellAudio"]:checked {
 QPushButton[toggleRole="bellAudio"]:hover {
     border-color: #ffd84d;
 }
+QFrame#connectionBanner {
+    background: #3c2b20;
+    border: 1px solid #8e6c4a;
+    border-radius: 14px;
+}
+QLabel#connectionBannerText {
+    color: #f5dfc9;
+    font-size: 14pt;
+    font-weight: 700;
+}
 QTableWidget {
     background: #121316;
     alternate-background-color: #191b20;

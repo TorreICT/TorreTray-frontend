@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from torretray_pi.models import Reservation, ReservationStatus
@@ -35,7 +35,7 @@ class LocalReservationStateStore:
                 (
                     meal_status_id,
                     status.value,
-                    datetime.now(UTC).isoformat(timespec="seconds"),
+                    datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 ),
             )
 

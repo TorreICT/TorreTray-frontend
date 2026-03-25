@@ -90,6 +90,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._schedule_loaded_at: datetime | None = None
         self._next_bell_check_at: datetime | None = None
         self._pending_status_sync_running = False
+        self._backend_connection_down = False
 
         self._build_ui()
         self._bind_events()
@@ -194,6 +195,7 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(self.print_pending_button)
         layout.addWidget(self.refresh_button)
         layout.addWidget(self.settings_button)
+        layout.addWidget(self._build_connection_banner(panel))
         layout.addStretch()
         layout.addWidget(self.reprint_all_button)
 
@@ -231,6 +233,31 @@ class MainWindow(QtWidgets.QMainWindow):
         button.setMinimumHeight(98)
         button.setProperty("variant", variant)
         return button
+
+    def _build_connection_banner(self, parent: QtWidgets.QWidget) -> QtWidgets.QFrame:
+        banner = QtWidgets.QFrame(parent)
+        banner.setObjectName("connectionBanner")
+        banner.hide()
+
+        layout = QtWidgets.QHBoxLayout(banner)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(10)
+
+        self.connection_icon_label = QtWidgets.QLabel(banner)
+        warning_icon = self.style().standardIcon(QtWidgets.QStyle.SP_MessageBoxWarning)
+        self.connection_icon_label.setPixmap(warning_icon.pixmap(30, 30))
+        self.connection_icon_label.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignHCenter)
+
+        self.connection_status_label = QtWidgets.QLabel(
+            "Lost connection",
+            banner,
+        )
+        self.connection_status_label.setObjectName("connectionBannerText")
+
+        layout.addWidget(self.connection_icon_label, alignment=QtCore.Qt.AlignTop)
+        layout.addWidget(self.connection_status_label, stretch=1)
+        self.connection_banner = banner
+        return banner
 
     def _evaluate_schedule(
         self,
@@ -324,6 +351,7 @@ class MainWindow(QtWidgets.QMainWindow):
         *,
         force_data_refresh: bool,
     ) -> None:
+        self._set_backend_connection_down(False)
         self._schedule_windows = sorted(
             schedule_windows,
             key=lambda window: (window.date, window.start_time, window.key),
@@ -335,6 +363,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self,
         schedule_windows: list[ScheduledServiceWindow],
     ) -> None:
+        self._set_backend_connection_down(False)
         self._schedule_windows = sorted(
             schedule_windows,
             key=lambda window: (window.date, window.start_time, window.key),
@@ -415,6 +444,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
     def _apply_snapshot(self, snapshot: ReservationSnapshot) -> None:
+        self._set_backend_connection_down(False)
         self._snapshot = snapshot
         self._last_auto_refresh_at = snapshot.refreshed_at
         self.pending_table.set_reservations(snapshot.unprinted)
@@ -444,6 +474,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
     def _apply_idle_refresh_result(self, _sync_result: object) -> None:
+        self._set_backend_connection_down(False)
         refreshed_at = self.settings.current_datetime()
         self._apply_idle_state(refreshed_at, refreshed_at=refreshed_at)
         self.statusBar().showMessage(
@@ -907,6 +938,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _handle_pending_status_sync_result(self, synced_count: object) -> None:
         if not isinstance(synced_count, int) or synced_count <= 0:
             return
+        self._set_backend_connection_down(False)
         self.statusBar().showMessage(
             f"Sincronizzati {synced_count} aggiornamenti locali con il backend.",
             5000,
@@ -924,7 +956,19 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _handle_worker_error(self, message: str) -> None:
         safe_message = message or "Si e verificato un errore inatteso."
+        if self._is_backend_connection_error(safe_message):
+            self._set_backend_connection_down(True)
         self.statusBar().showMessage(safe_message, 6000)
+
+    def _is_backend_connection_error(self, message: str) -> bool:
+        normalized = message.strip().lower()
+        return "impossibile contattare il backend" in normalized
+
+    def _set_backend_connection_down(self, is_down: bool) -> None:
+        if self._backend_connection_down == is_down:
+            return
+        self._backend_connection_down = is_down
+        self.connection_banner.setVisible(is_down)
 
     @staticmethod
     def _service_key(service: ScheduledServiceWindow | None) -> str | None:
