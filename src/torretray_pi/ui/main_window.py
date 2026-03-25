@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import date, datetime, timedelta
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -15,9 +16,15 @@ from torretray_pi.config import (
     resolve_active_service,
     save_runtime_settings,
 )
-from torretray_pi.models import Reservation, ReservationFilters
+from torretray_pi.local_state import LocalReservationStateStore
+from torretray_pi.models import Reservation, ReservationFilters, ReservationStatus
 from torretray_pi.printing import PrinterService
-from torretray_pi.services import PrintJobResult, ReservationService, ReservationSnapshot
+from torretray_pi.services import (
+    PrintJobResult,
+    ReservationService,
+    ReservationSnapshot,
+    StatusUpdateResult,
+)
 from torretray_pi.ui.dialogs import (
     ConfirmationDialog,
     LoadingDialog,
@@ -63,9 +70,11 @@ class MainWindow(QtWidgets.QMainWindow):
             timeout_seconds=settings.request_timeout_seconds,
         )
         self.printer = PrinterService(settings)
+        self.local_state = LocalReservationStateStore(settings.local_state_db_path)
         self.service = ReservationService(
             client=self.client,
             printer=self.printer,
+            local_state=self.local_state,
             now_provider=settings.current_datetime,
         )
         self.thread_pool = QtCore.QThreadPool(self)
@@ -79,6 +88,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._last_auto_refresh_at: datetime | None = None
         self._schedule_windows: list[ScheduledServiceWindow] = []
         self._schedule_loaded_at: datetime | None = None
+        self._next_bell_check_at: datetime | None = None
+        self._pending_status_sync_running = False
 
         self._build_ui()
         self._bind_events()
@@ -211,9 +222,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.schedule_timer.start()
 
         self.bell_timer = QtCore.QTimer(self)
-        self.bell_timer.setInterval(self.settings.bell_interval_seconds * 1000)
-        self.bell_timer.timeout.connect(self._ring_if_needed)
-        self.bell_timer.start()
+        self.bell_timer.setSingleShot(True)
+        self.bell_timer.timeout.connect(self._handle_bell_timer)
 
     def _make_action_button(self, label: str, variant: str) -> QtWidgets.QPushButton:
         button = QtWidgets.QPushButton(label, self)
@@ -230,6 +240,7 @@ class MainWindow(QtWidgets.QMainWindow):
         allow_schedule_refresh: bool = True,
     ) -> None:
         now = self.settings.current_datetime()
+        self._sync_pending_status_updates_in_background()
         if allow_schedule_refresh and self._schedule_refresh_needed(now, force_refresh):
             self._refresh_schedule(force_data_refresh=force_refresh, show_loading=show_loading)
             return
@@ -237,7 +248,7 @@ class MainWindow(QtWidgets.QMainWindow):
         active_service = resolve_active_service(
             self._schedule_windows,
             current_moment=now,
-            preload_minutes=self.settings.preload_minutes,
+            loading_time_before_meal=self.settings.loading_time_before_meal,
         )
         service_changed = self._service_key(active_service) != self._service_key(
             self._active_service
@@ -247,9 +258,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self._active_filters = (
             active_service.filters_for() if active_service is not None else None
         )
+        if service_changed:
+            self._snapshot = None
+            self._last_auto_refresh_at = None
+            self.pending_table.set_reservations([])
+            self.printed_table.set_reservations([])
+            self.status_label.setText("Ultimo aggiornamento: N/D")
+        self._sync_bell_scheduler(now, force=service_changed or force_refresh)
 
         if active_service is None:
-            self._last_auto_refresh_at = None
             if force_refresh:
                 self._refresh_idle_day(show_loading=show_loading)
             else:
@@ -345,12 +362,22 @@ class MainWindow(QtWidgets.QMainWindow):
         active_service = resolve_active_service(
             self._schedule_windows,
             current_moment=now,
-            preload_minutes=self.settings.preload_minutes,
+            loading_time_before_meal=self.settings.loading_time_before_meal,
+        )
+        service_changed = self._service_key(active_service) != self._service_key(
+            self._active_service
         )
         self._active_service = active_service
         self._active_filters = (
             active_service.filters_for() if active_service is not None else None
         )
+        if service_changed:
+            self._snapshot = None
+            self._last_auto_refresh_at = None
+            self.pending_table.set_reservations([])
+            self.printed_table.set_reservations([])
+            self.status_label.setText("Ultimo aggiornamento: N/D")
+        self._sync_bell_scheduler(now, force=True)
 
         if active_service is None:
             self.statusBar().showMessage(
@@ -405,9 +432,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.statusBar().showMessage("Lista aggiornata", 3000)
         self._refresh_action_states()
 
-        if snapshot.unprinted:
-            self._bell_player.ring()
-
     def _refresh_idle_day(self, *, show_loading: bool) -> None:
         if self._busy:
             return
@@ -446,7 +470,7 @@ class MainWindow(QtWidgets.QMainWindow):
         upcoming_service = next_service(
             self._schedule_windows,
             current_moment=now,
-            preload_minutes=self.settings.preload_minutes,
+            loading_time_before_meal=self.settings.loading_time_before_meal,
         )
         if upcoming_service is None:
             self.context_label.setText("Fuori fascia oraria automatica.")
@@ -454,16 +478,19 @@ class MainWindow(QtWidgets.QMainWindow):
                 "Nessuna fascia configurata disponibile nei prossimi giorni."
             )
         else:
-            service, preload_time = upcoming_service
+            service, loading_time = upcoming_service
+            bell_time = self._bell_window_starts_at(service)
             self.context_label.setText(
                 f"Fuori fascia oraria. Prossimo caricamento: {service.label} alle "
-                f"{preload_time.strftime('%H:%M')}."
+                f"{loading_time.strftime('%H:%M')}. Campanella dalle "
+                f"{bell_time.strftime('%H:%M')}."
             )
             self.mode_description.setText(
                 "L'app carica automaticamente i ticket "
-                f"{self.settings.preload_minutes} minuti prima del pasto "
-                f"e li aggiorna ogni {self.settings.auto_refresh_minutes} minuti "
-                "fino a fine fascia."
+                f"{self.settings.loading_time_before_meal} minuti prima del pasto, "
+                f"li aggiorna ogni {self.settings.auto_refresh_minutes} minuti "
+                f"e controlla la campanella ogni {self.settings.bell_interval_seconds} secondi "
+                f"a partire da {self.settings.bell_time_before_meal} minuti prima del pasto."
             )
         self.statusBar().showMessage("Fuori fascia oraria automatica", 3000)
         self._refresh_action_states()
@@ -473,6 +500,7 @@ class MainWindow(QtWidgets.QMainWindow):
         current_moment: datetime,
         active_service: ScheduledServiceWindow,
     ) -> None:
+        bell_start = self._bell_window_starts_at(active_service)
         if current_moment < active_service.starts_at():
             phase_label = "Precaricamento attivo"
         else:
@@ -483,9 +511,10 @@ class MainWindow(QtWidgets.QMainWindow):
             f"{active_service.end_time.strftime('%H:%M')}."
         )
         self.mode_description.setText(
-            f"Caricamento automatico {self.settings.preload_minutes} minuti "
-            "prima del pasto e refresh "
-            f"ogni {self.settings.auto_refresh_minutes} minuti finche ci sono ticket."
+            f"Ticket caricati {self.settings.loading_time_before_meal} minuti prima del pasto, "
+            f"refresh ogni {self.settings.auto_refresh_minutes} minuti e campanella da "
+            f"{bell_start.strftime('%H:%M')} ogni {self.settings.bell_interval_seconds} secondi "
+            "se restano ticket da stampare."
         )
 
     def _refresh_action_states(self) -> None:
@@ -506,7 +535,8 @@ class MainWindow(QtWidgets.QMainWindow):
         save_runtime_settings(
             self.settings.project_root,
             auto_refresh_minutes=values["auto_refresh_minutes"],
-            preload_minutes=values["preload_minutes"],
+            loading_time_before_meal=values["loading_time_before_meal"],
+            bell_time_before_meal=values["bell_time_before_meal"],
             schedule_lookahead_days=values["schedule_lookahead_days"],
             bell_interval_seconds=values["bell_interval_seconds"],
             bell_muted=values["bell_muted"],
@@ -516,9 +546,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.service = ReservationService(
             client=self.client,
             printer=self.printer,
+            local_state=self.local_state,
             now_provider=self.settings.current_datetime,
         )
-        self.bell_timer.setInterval(self.settings.bell_interval_seconds * 1000)
         self._bell_player.set_muted(self.settings.bell_muted)
         self.statusBar().showMessage("Impostazioni salvate correttamente.", 5000)
         self._evaluate_schedule(force_refresh=True, show_loading=False)
@@ -579,10 +609,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._run_task(
             task=lambda: self.service.cancel_reservation(reservation),
-            on_success=lambda _result: self.statusBar().showMessage(
-                f"Prenotazione annullata per {reservation.name}.",
-                5000,
-            ),
+            on_success=lambda result: self._on_cancel_success(reservation, result),
             on_finished=lambda: self._evaluate_schedule(
                 force_refresh=True,
                 show_loading=False,
@@ -640,25 +667,185 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
     def _on_print_success(self, result: PrintJobResult) -> None:
-        if result.marked_count:
-            self.statusBar().showMessage(
-                (
-                    f"Stampati {result.printed_count} ticket e "
-                    f"aggiornati {result.marked_count} stati."
-                ),
-                5000,
+        self._apply_local_status_result(
+            StatusUpdateResult(
+                updated_count=result.marked_count,
+                synced_count=result.synced_count,
+                reservation_ids=result.marked_reservation_ids,
+                status=ReservationStatus.PRINTED,
             )
+        )
+        deferred_count = result.marked_count - result.synced_count
+        if result.marked_count:
+            if deferred_count:
+                self.statusBar().showMessage(
+                    (
+                        f"Stampati {result.printed_count} ticket e aggiornati "
+                        f"{result.marked_count} stati in locale. "
+                        f"{deferred_count} in attesa di sync backend."
+                    ),
+                    6000,
+                )
+            else:
+                self.statusBar().showMessage(
+                    (
+                        f"Stampati {result.printed_count} ticket e "
+                        f"aggiornati {result.marked_count} stati."
+                    ),
+                    5000,
+                )
         else:
             self.statusBar().showMessage(
                 f"Stampati {result.printed_count} ticket.",
                 5000,
             )
 
+    def _on_cancel_success(
+        self,
+        reservation: Reservation,
+        result: StatusUpdateResult,
+    ) -> None:
+        self._apply_local_status_result(result)
+        deferred_count = result.updated_count - result.synced_count
+        if deferred_count:
+            self.statusBar().showMessage(
+                (
+                    f"Prenotazione annullata per {reservation.name} in locale. "
+                    f"{deferred_count} update in attesa di sync backend."
+                ),
+                6000,
+            )
+            return
+
+        self.statusBar().showMessage(
+            f"Prenotazione annullata per {reservation.name}.",
+            5000,
+        )
+
+    def _apply_local_status_result(self, result: StatusUpdateResult) -> None:
+        if self._snapshot is None or not result.updated_count:
+            return
+
+        marked_ids = set(result.reservation_ids)
+        still_pending: list[Reservation] = []
+        newly_printed: list[Reservation] = []
+        for reservation in self._snapshot.unprinted:
+            if reservation.id in marked_ids:
+                if result.status is ReservationStatus.PRINTED:
+                    newly_printed.append(
+                        replace(reservation, status=ReservationStatus.PRINTED)
+                    )
+            else:
+                still_pending.append(reservation)
+
+        if result.status is ReservationStatus.CANCELLED:
+            self._snapshot = ReservationSnapshot(
+                filters=self._snapshot.filters,
+                unprinted=sorted(still_pending, key=lambda item: item.name.lower()),
+                printed=self._snapshot.printed,
+                refreshed_at=self._snapshot.refreshed_at,
+                sync_result=self._snapshot.sync_result,
+            )
+            self.pending_table.set_reservations(self._snapshot.unprinted)
+            self.printed_table.set_reservations(self._snapshot.printed)
+            self._refresh_action_states()
+            return
+
+        if not newly_printed:
+            return
+
+        printed = sorted(
+            [*self._snapshot.printed, *newly_printed],
+            key=lambda item: item.name.lower(),
+        )
+        self._snapshot = ReservationSnapshot(
+            filters=self._snapshot.filters,
+            unprinted=sorted(still_pending, key=lambda item: item.name.lower()),
+            printed=printed,
+            refreshed_at=self._snapshot.refreshed_at,
+            sync_result=self._snapshot.sync_result,
+        )
+        self.pending_table.set_reservations(self._snapshot.unprinted)
+        self.printed_table.set_reservations(self._snapshot.printed)
+        self._refresh_action_states()
+
+    def _handle_bell_timer(self) -> None:
+        self._ring_if_needed()
+        self._sync_bell_scheduler(
+            self.settings.current_datetime() + timedelta(microseconds=1),
+            force=True,
+        )
+
     def _ring_if_needed(self) -> None:
-        if self._busy or self._active_service is None or self._snapshot is None:
+        now = self.settings.current_datetime()
+        if self._busy or self._snapshot is None or not self._bell_is_allowed(now):
             return
         if self._snapshot.unprinted:
             self._bell_player.ring()
+
+    def _sync_bell_scheduler(
+        self,
+        now: datetime | None = None,
+        *,
+        force: bool = False,
+    ) -> None:
+        reference_time = now or self.settings.current_datetime()
+        if (
+            not force
+            and self.bell_timer.isActive()
+            and self._next_bell_check_at is not None
+            and reference_time <= self._next_bell_check_at
+        ):
+            return
+
+        self.bell_timer.stop()
+        self._next_bell_check_at = self._next_bell_check_time(reference_time)
+        if self._next_bell_check_at is None:
+            return
+
+        delay_ms = max(
+            0,
+            int(
+                (self._next_bell_check_at - reference_time).total_seconds() * 1000
+            ),
+        )
+        self.bell_timer.start(delay_ms)
+
+    def _next_bell_check_time(self, now: datetime) -> datetime | None:
+        if self._active_service is None:
+            return None
+
+        bell_start = self._bell_window_starts_at(self._active_service)
+        service_end = self._active_service.ends_at()
+        if now > service_end:
+            return None
+        if now <= bell_start:
+            return bell_start
+
+        interval_seconds = self.settings.bell_interval_seconds
+        elapsed_seconds = (now - bell_start).total_seconds()
+        completed_intervals = int(elapsed_seconds // interval_seconds)
+        next_check = bell_start + timedelta(
+            seconds=(completed_intervals + 1) * interval_seconds
+        )
+        if next_check > service_end:
+            return None
+        return next_check
+
+    def _bell_is_allowed(self, now: datetime) -> bool:
+        if self._active_service is None:
+            return False
+        return (
+            self._bell_window_starts_at(self._active_service)
+            <= now
+            <= self._active_service.ends_at()
+        )
+
+    def _bell_window_starts_at(self, service: ScheduledServiceWindow) -> datetime:
+        return max(
+            service.loading_starts_at(self.settings.loading_time_before_meal),
+            service.bell_starts_at(self.settings.bell_time_before_meal),
+        )
 
     def _run_task(
         self,
@@ -687,6 +874,47 @@ class MainWindow(QtWidgets.QMainWindow):
             worker.signals.finished.connect(on_finished)
         self.thread_pool.start(worker)
 
+    def _run_background_task(
+        self,
+        *,
+        task: Callable[[], object],
+        on_success: Callable[[object], None] | None = None,
+        on_error: Callable[[str], None] | None = None,
+        on_finished: Callable[[], None] | None = None,
+    ) -> None:
+        worker = BackgroundTask(task)
+        if on_success is not None:
+            worker.signals.succeeded.connect(on_success)
+        if on_error is not None:
+            worker.signals.failed.connect(on_error)
+        if on_finished is not None:
+            worker.signals.finished.connect(on_finished)
+        self.thread_pool.start(worker)
+
+    def _sync_pending_status_updates_in_background(self) -> None:
+        if self._busy or self._pending_status_sync_running:
+            return
+        if not self.service.has_pending_status_sync():
+            return
+
+        self._pending_status_sync_running = True
+        self._run_background_task(
+            task=self.service.sync_pending_status_updates,
+            on_success=self._handle_pending_status_sync_result,
+            on_finished=self._finish_pending_status_sync,
+        )
+
+    def _handle_pending_status_sync_result(self, synced_count: object) -> None:
+        if not isinstance(synced_count, int) or synced_count <= 0:
+            return
+        self.statusBar().showMessage(
+            f"Sincronizzati {synced_count} aggiornamenti locali con il backend.",
+            5000,
+        )
+
+    def _finish_pending_status_sync(self) -> None:
+        self._pending_status_sync_running = False
+
     def _finish_background_task(self) -> None:
         self._busy = False
         self._refresh_action_states()
@@ -697,7 +925,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def _handle_worker_error(self, message: str) -> None:
         safe_message = message or "Si e verificato un errore inatteso."
         self.statusBar().showMessage(safe_message, 6000)
-        QtWidgets.QMessageBox.warning(self, "Errore TorreTray", safe_message)
 
     @staticmethod
     def _service_key(service: ScheduledServiceWindow | None) -> str | None:

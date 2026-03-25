@@ -32,8 +32,14 @@ class ScheduledServiceWindow:
     def ends_at(self) -> datetime:
         return datetime.combine(self.date, self.end_time)
 
-    def preload_starts_at(self, preload_minutes: int) -> datetime:
-        return self.starts_at() - timedelta(minutes=preload_minutes)
+    def starts_before_meal(self, minutes_before_meal: int) -> datetime:
+        return self.starts_at() - timedelta(minutes=minutes_before_meal)
+
+    def loading_starts_at(self, loading_time_before_meal: int) -> datetime:
+        return self.starts_before_meal(loading_time_before_meal)
+
+    def bell_starts_at(self, bell_time_before_meal: int) -> datetime:
+        return self.starts_before_meal(bell_time_before_meal)
 
 
 def _load_env_file(project_root: Path) -> None:
@@ -55,7 +61,8 @@ def save_runtime_settings(
     project_root: Path,
     *,
     auto_refresh_minutes: int,
-    preload_minutes: int,
+    loading_time_before_meal: int,
+    bell_time_before_meal: int,
     schedule_lookahead_days: int,
     bell_interval_seconds: int,
     bell_muted: bool,
@@ -64,10 +71,14 @@ def save_runtime_settings(
     env_path = project_root / ".env"
     updates = {
         "TORRETRAY_AUTO_REFRESH_MINUTES": str(max(1, auto_refresh_minutes)),
-        "TORRETRAY_PRELOAD_MINUTES": str(max(0, preload_minutes)),
+        "TORRETRAY_LOADING_TIME_BEFORE_MEAL": str(max(0, loading_time_before_meal)),
+        "TORRETRAY_BELL_TIME_BEFORE_MEAL": str(max(0, bell_time_before_meal)),
         "TORRETRAY_SCHEDULE_LOOKAHEAD_DAYS": str(max(1, schedule_lookahead_days)),
         "TORRETRAY_BELL_INTERVAL_SECONDS": str(max(15, bell_interval_seconds)),
         "TORRETRAY_BELL_MUTED": "true" if bell_muted else "false",
+    }
+    legacy_key_aliases = {
+        "TORRETRAY_PRELOAD_MINUTES": "TORRETRAY_LOADING_TIME_BEFORE_MEAL",
     }
 
     existing_lines = (
@@ -86,6 +97,12 @@ def save_runtime_settings(
 
         key, _value = raw_line.split("=", 1)
         normalized_key = key.strip()
+        alias_target = legacy_key_aliases.get(normalized_key)
+        if alias_target is not None:
+            if alias_target not in seen_keys:
+                updated_lines.append(f"{alias_target}={updates[alias_target]}")
+                seen_keys.add(alias_target)
+            continue
         if normalized_key not in updates:
             updated_lines.append(raw_line)
             continue
@@ -123,7 +140,8 @@ class AppSettings:
     api_base_url: str
     request_timeout_seconds: float
     auto_refresh_minutes: int
-    preload_minutes: int
+    loading_time_before_meal: int
+    bell_time_before_meal: int
     schedule_lookahead_days: int
     bell_interval_seconds: int
     bell_muted: bool
@@ -161,6 +179,10 @@ class AppSettings:
     def bell_sound_path(self) -> Path:
         return self.project_root / "res" / "glass_ping.wav"
 
+    @property
+    def local_state_db_path(self) -> Path:
+        return self.project_root / "data" / "torretray-local-state.sqlite3"
+
     def current_datetime(self) -> datetime:
         return self.test_now or datetime.now()
 
@@ -172,14 +194,18 @@ def resolve_active_service(
     schedule_windows: Iterable[ScheduledServiceWindow],
     *,
     current_moment: datetime,
-    preload_minutes: int,
+    loading_time_before_meal: int,
 ) -> ScheduledServiceWindow | None:
     """Return the currently active service window, if any."""
     for window in sorted(
         schedule_windows,
-        key=lambda item: item.preload_starts_at(preload_minutes),
+        key=lambda item: item.loading_starts_at(loading_time_before_meal),
     ):
-        if window.preload_starts_at(preload_minutes) <= current_moment <= window.ends_at():
+        if (
+            window.loading_starts_at(loading_time_before_meal)
+            <= current_moment
+            <= window.ends_at()
+        ):
             return window
     return None
 
@@ -188,22 +214,23 @@ def next_service(
     schedule_windows: Iterable[ScheduledServiceWindow],
     *,
     current_moment: datetime,
-    preload_minutes: int,
+    loading_time_before_meal: int,
 ) -> tuple[ScheduledServiceWindow, datetime] | None:
-    """Return the next upcoming service window and its preload start."""
+    """Return the next upcoming service window and its loading start."""
     for window in sorted(
         schedule_windows,
-        key=lambda item: item.preload_starts_at(preload_minutes),
+        key=lambda item: item.loading_starts_at(loading_time_before_meal),
     ):
-        preload_time = window.preload_starts_at(preload_minutes)
-        if preload_time > current_moment:
-            return window, preload_time
+        loading_time = window.loading_starts_at(loading_time_before_meal)
+        if loading_time > current_moment:
+            return window, loading_time
     return None
 
 
 def load_settings(*, test_now_override: datetime | None = None) -> AppSettings:
     project_root = Path(__file__).resolve().parents[2]
     _load_env_file(project_root)
+    legacy_preload_minutes = max(0, _get_int("TORRETRAY_PRELOAD_MINUTES", 5))
 
     return AppSettings(
         project_root=project_root,
@@ -213,7 +240,14 @@ def load_settings(*, test_now_override: datetime | None = None) -> AppSettings:
             os.getenv("TORRETRAY_REQUEST_TIMEOUT_SECONDS", "10")
         ),
         auto_refresh_minutes=max(1, _get_int("TORRETRAY_AUTO_REFRESH_MINUTES", 5)),
-        preload_minutes=max(0, _get_int("TORRETRAY_PRELOAD_MINUTES", 5)),
+        loading_time_before_meal=max(
+            0,
+            _get_int("TORRETRAY_LOADING_TIME_BEFORE_MEAL", legacy_preload_minutes),
+        ),
+        bell_time_before_meal=max(
+            0,
+            _get_int("TORRETRAY_BELL_TIME_BEFORE_MEAL", legacy_preload_minutes),
+        ),
         schedule_lookahead_days=max(1, _get_int("TORRETRAY_SCHEDULE_LOOKAHEAD_DAYS", 7)),
         bell_interval_seconds=max(15, _get_int("TORRETRAY_BELL_INTERVAL_SECONDS", 60)),
         bell_muted=_get_bool("TORRETRAY_BELL_MUTED", False),

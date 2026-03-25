@@ -13,9 +13,9 @@ API lo stato operativo delle prenotazioni.
 - mostra le prenotazioni operative della fascia attiva divise in `Da stampare`
   e `Gia stampati`
 - usa gli orari backend di `breakfast`, `lunch` e `dinner` per capire quando
-  precaricare e quando aggiornare i dati
-- esegue il caricamento automatico alcuni minuti prima del pasto e il refresh
-  periodico durante la fascia attiva
+  caricare i ticket, quando aggiornare i dati e da quando puo' partire la campanella
+- esegue il caricamento automatico alcuni minuti prima del pasto, il refresh
+  periodico durante la fascia attiva e i controlli campanella su una cadenza separata
 - permette di stampare ticket singoli o in blocco
 - permette di ristampare ticket gia' stampati senza cambiarne lo stato
 - permette di annullare singole prenotazioni non ancora stampate
@@ -43,7 +43,8 @@ Variabili correnti:
 - `TORRETRAY_API_BASE_URL=http://127.0.0.1:8000`
 - `TORRETRAY_REQUEST_TIMEOUT_SECONDS=10`
 - `TORRETRAY_AUTO_REFRESH_MINUTES=5`
-- `TORRETRAY_PRELOAD_MINUTES=5`
+- `TORRETRAY_LOADING_TIME_BEFORE_MEAL=5`
+- `TORRETRAY_BELL_TIME_BEFORE_MEAL=5`
 - `TORRETRAY_SCHEDULE_LOOKAHEAD_DAYS=7`
 - `TORRETRAY_BELL_INTERVAL_SECONDS=60`
 - `TORRETRAY_BELL_MUTED=false`
@@ -71,7 +72,7 @@ python main.py --test-time 2026-03-23T13:00:00
 ## Note operative
 
 - All'avvio l'app carica gli orari dal backend e decide se si trova in
-  precaricamento, in fascia attiva o fuori fascia.
+  caricamento anticipato, in fascia attiva o fuori fascia.
 - Il refresh manuale ricarica prima gli orari dal backend e poi, se esiste una
   fascia attiva, esegue la sync e aggiorna la lista delle prenotazioni.
 - Se non c'e' una fascia attiva, il refresh manuale esegue comunque la sync
@@ -80,7 +81,8 @@ python main.py --test-time 2026-03-23T13:00:00
 - La ristampa dei ticket gia' stampati non cambia lo stato operativo.
 - L'annullamento e' disponibile solo per prenotazioni non ancora stampate.
 - Il pulsante `Impostazioni` salva nel `.env` locale: refresh automatico,
-  precaricamento, lookahead schedule, intervallo campanella e mute campanella.
+  caricamento prima del pasto, avvio campanella prima del pasto, lookahead
+  schedule, intervallo campanella e mute campanella.
 
 ## Dipendenze runtime
 

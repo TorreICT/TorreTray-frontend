@@ -190,7 +190,7 @@ class TraySettingsDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.setModal(True)
         self.setWindowTitle("Impostazioni locali")
-        self.resize(460, 340)
+        self.resize(460, 390)
 
         root_layout = QtWidgets.QVBoxLayout(self)
         root_layout.setContentsMargins(20, 20, 20, 20)
@@ -218,8 +218,14 @@ class TraySettingsDialog(QtWidgets.QDialog):
             maximum=120,
             suffix=" min",
         )
-        self.preload_spin = self._build_spinbox(
-            value=settings.preload_minutes,
+        self.loading_before_meal_spin = self._build_spinbox(
+            value=settings.loading_time_before_meal,
+            minimum=0,
+            maximum=120,
+            suffix=" min",
+        )
+        self.bell_before_meal_spin = self._build_spinbox(
+            value=settings.bell_time_before_meal,
             minimum=0,
             maximum=120,
             suffix=" min",
@@ -237,14 +243,19 @@ class TraySettingsDialog(QtWidgets.QDialog):
             suffix=" sec",
             step=15,
         )
-        self.bell_muted_checkbox = QtWidgets.QCheckBox("Disattiva campanella")
-        self.bell_muted_checkbox.setChecked(settings.bell_muted)
+        self.bell_audio_toggle = QtWidgets.QPushButton(self)
+        self.bell_audio_toggle.setCheckable(True)
+        self.bell_audio_toggle.setProperty("toggleRole", "bellAudio")
+        self.bell_audio_toggle.setChecked(not settings.bell_muted)
+        self.bell_audio_toggle.clicked.connect(self._refresh_bell_audio_toggle_text)
+        self._refresh_bell_audio_toggle_text()
 
         form_layout.addRow("Refresh automatico", self.auto_refresh_spin)
-        form_layout.addRow("Precaricamento", self.preload_spin)
+        form_layout.addRow("Caricamento prima del pasto", self.loading_before_meal_spin)
+        form_layout.addRow("Campanella prima del pasto", self.bell_before_meal_spin)
         form_layout.addRow("Orizzonte schedule", self.lookahead_spin)
         form_layout.addRow("Intervallo campanella", self.bell_interval_spin)
-        form_layout.addRow("Audio campanella", self.bell_muted_checkbox)
+        form_layout.addRow("Audio campanella", self.bell_audio_toggle)
         root_layout.addLayout(form_layout)
         root_layout.addStretch()
 
@@ -260,11 +271,20 @@ class TraySettingsDialog(QtWidgets.QDialog):
         """Return the settings chosen by the operator."""
         return {
             "auto_refresh_minutes": self.auto_refresh_spin.value(),
-            "preload_minutes": self.preload_spin.value(),
+            "loading_time_before_meal": self.loading_before_meal_spin.value(),
+            "bell_time_before_meal": self.bell_before_meal_spin.value(),
             "schedule_lookahead_days": self.lookahead_spin.value(),
             "bell_interval_seconds": self.bell_interval_spin.value(),
-            "bell_muted": self.bell_muted_checkbox.isChecked(),
+            "bell_muted": not self.bell_audio_toggle.isChecked(),
         }
+
+    def _refresh_bell_audio_toggle_text(self) -> None:
+        if self.bell_audio_toggle.isChecked():
+            self.bell_audio_toggle.setText("Attiva")
+            self.bell_audio_toggle.setToolTip("La campanella e attiva.")
+        else:
+            self.bell_audio_toggle.setText("Disattiva")
+            self.bell_audio_toggle.setToolTip("La campanella e disattivata.")
 
     @staticmethod
     def _build_spinbox(

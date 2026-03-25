@@ -133,6 +133,16 @@ QSpinBox::up-button, QSpinBox::down-button {
 QSpinBox::up-button:hover, QSpinBox::down-button:hover {
     background: #343840;
 }
+QSpinBox::up-arrow {
+    image: url(res/img/spin-up.svg);
+    width: 12px;
+    height: 12px;
+}
+QSpinBox::down-arrow {
+    image: url(res/img/spin-down.svg);
+    width: 12px;
+    height: 12px;
+}
 QCheckBox {
     spacing: 12px;
 }
@@ -145,6 +155,24 @@ QCheckBox::indicator {
 }
 QCheckBox::indicator:checked {
     background: #ffd84d;
+    border-color: #ffd84d;
+    image: url(res/img/checkbox-check.svg);
+}
+QPushButton[toggleRole="bellAudio"] {
+    min-height: 42px;
+    min-width: 132px;
+    padding: 8px 18px;
+    border-radius: 21px;
+    background: #4a3537;
+    border: 1px solid #8f5d62;
+    color: #f7d7d9;
+}
+QPushButton[toggleRole="bellAudio"]:checked {
+    background: #2e5b43;
+    border-color: #68b587;
+    color: #edf8f1;
+}
+QPushButton[toggleRole="bellAudio"]:hover {
     border-color: #ffd84d;
 }
 QTableWidget {
