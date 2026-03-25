@@ -182,7 +182,7 @@ QFrame#connectionBanner {
 }
 QLabel#connectionBannerText {
     color: #f5dfc9;
-    font-size: 14pt;
+    font-size: 12pt;
     font-weight: 700;
 }
 QTableWidget {
