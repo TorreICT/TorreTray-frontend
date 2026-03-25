@@ -517,11 +517,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 f"{bell_time.strftime('%H:%M')}."
             )
             self.mode_description.setText(
-                "L'app carica automaticamente i ticket "
-                f"{self.settings.loading_time_before_meal} minuti prima del pasto, "
-                f"li aggiorna ogni {self.settings.auto_refresh_minutes} minuti "
-                f"e controlla la campanella ogni {self.settings.bell_interval_seconds} secondi "
-                f"a partire da {self.settings.bell_time_before_meal} minuti prima del pasto."
+                f"Carica {self.settings.loading_time_before_meal} min prima. "
+                f"Refresh ogni {self.settings.auto_refresh_minutes} min."
             )
         self.statusBar().showMessage("Fuori fascia oraria automatica", 3000)
         self._refresh_action_states()
@@ -542,10 +539,8 @@ class MainWindow(QtWidgets.QMainWindow):
             f"{active_service.end_time.strftime('%H:%M')}."
         )
         self.mode_description.setText(
-            f"Ticket caricati {self.settings.loading_time_before_meal} minuti prima del pasto, "
-            f"refresh ogni {self.settings.auto_refresh_minutes} minuti e campanella da "
-            f"{bell_start.strftime('%H:%M')} ogni {self.settings.bell_interval_seconds} secondi "
-            "se restano ticket da stampare."
+            f"Refresh ogni {self.settings.auto_refresh_minutes} min. "
+            f"Campanella da {bell_start.strftime('%H:%M')}."
         )
 
     def _refresh_action_states(self) -> None:
