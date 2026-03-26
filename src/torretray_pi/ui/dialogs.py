@@ -51,6 +51,7 @@ class LoadingDialog(QtWidgets.QDialog):
     ) -> None:
         super().__init__(parent)
         self.setModal(True)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.SplashScreen)
         self.setWindowTitle(" ")
         self.resize(380, 120)
@@ -70,6 +71,11 @@ class LoadingDialog(QtWidgets.QDialog):
         self._movie.setScaledSize(QtCore.QSize(34, 34))
         self._spinner_label.setMovie(self._movie)
         self._movie.start()
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        self._movie.stop()
+        self._spinner_label.clear()
+        super().closeEvent(event)
 
 
 class TicketPreviewDialog(QtWidgets.QDialog):

@@ -63,23 +63,17 @@ class ReservationTable(QtWidgets.QFrame):
         layout.addWidget(self.table)
 
     def set_reservations(self, reservations: list[Reservation]) -> None:
+        self.table.setUpdatesEnabled(False)
+        self.table.clearContents()
         self.table.setRowCount(len(reservations))
         for row, reservation in enumerate(reservations):
             self._set_row(row, reservation)
+        self.table.setUpdatesEnabled(True)
 
     def _set_row(self, row: int, reservation: Reservation) -> None:
-        name_wrapper = QtWidgets.QWidget(self.table)
-        name_wrapper.setObjectName("reservationNameCell")
-        name_layout = QtWidgets.QHBoxLayout(name_wrapper)
-        name_layout.setContentsMargins(18, 0, 12, 0)
-        name_layout.setSpacing(0)
-        name_layout.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
-
-        name_label = QtWidgets.QLabel(reservation.name, name_wrapper)
-        name_label.setObjectName("reservationNameLabel")
-        name_label.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
-        name_layout.addWidget(name_label)
-        self.table.setCellWidget(row, 0, name_wrapper)
+        name_item = QtWidgets.QTableWidgetItem(reservation.name)
+        name_item.setTextAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
+        self.table.setItem(row, 0, name_item)
 
         button_wrapper = QtWidgets.QWidget(self.table)
         button_wrapper.setObjectName("reservationActionCell")
