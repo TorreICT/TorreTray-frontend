@@ -43,7 +43,17 @@ class MainWindowActionMixin:
             now_provider=self.settings.current_datetime,
         )
         self._bell_player.set_muted(self.settings.bell_muted)
-        self.statusBar().showMessage("Impostazioni salvate correttamente.", 5000)
+        if values["bell_time_before_meal"] != self.settings.bell_time_before_meal:
+            self.statusBar().showMessage(
+                (
+                    "Impostazioni salvate. La campanella e stata limitata a "
+                    f"{self.settings.bell_time_before_meal} min perche non puo "
+                    "iniziare prima del caricamento prenotazioni."
+                ),
+                7000,
+            )
+        else:
+            self.statusBar().showMessage("Impostazioni salvate correttamente.", 5000)
         self._evaluate_schedule(force_refresh=True, show_loading=False)
 
     def _print_pending_batch(self) -> None:

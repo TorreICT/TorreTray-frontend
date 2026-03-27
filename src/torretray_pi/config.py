@@ -54,7 +54,31 @@ def _load_env_file(project_root: Path) -> None:
         key, value = line.split("=", 1)
         key = key.strip()
         value = value.strip().strip('"').strip("'")
-        os.environ.setdefault(key, value)
+        # The tray `.env` is the operator-facing source of truth, so values from
+        # disk should replace stale process-level values on reload/restart.
+        os.environ[key] = value
+
+
+def _normalize_runtime_settings(
+    *,
+    auto_refresh_minutes: int,
+    loading_time_before_meal: int,
+    bell_time_before_meal: int,
+    schedule_lookahead_days: int,
+    bell_interval_seconds: int,
+    bell_muted: bool,
+) -> dict[str, str]:
+    normalized_loading_time = max(0, loading_time_before_meal)
+    normalized_bell_time = min(max(0, bell_time_before_meal), normalized_loading_time)
+    return {
+        "TORRETRAY_AUTO_REFRESH_MINUTES": str(max(1, auto_refresh_minutes)),
+        "TORRETRAY_LOADING_TIME_BEFORE_MEAL": str(normalized_loading_time),
+        # Bell playback cannot start before the tray begins loading reservations.
+        "TORRETRAY_BELL_TIME_BEFORE_MEAL": str(normalized_bell_time),
+        "TORRETRAY_SCHEDULE_LOOKAHEAD_DAYS": str(max(1, schedule_lookahead_days)),
+        "TORRETRAY_BELL_INTERVAL_SECONDS": str(max(15, bell_interval_seconds)),
+        "TORRETRAY_BELL_MUTED": "true" if bell_muted else "false",
+    }
 
 
 def save_runtime_settings(
@@ -69,14 +93,14 @@ def save_runtime_settings(
 ) -> None:
     """Persist the editable runtime settings to the local tray `.env` file."""
     env_path = project_root / ".env"
-    updates = {
-        "TORRETRAY_AUTO_REFRESH_MINUTES": str(max(1, auto_refresh_minutes)),
-        "TORRETRAY_LOADING_TIME_BEFORE_MEAL": str(max(0, loading_time_before_meal)),
-        "TORRETRAY_BELL_TIME_BEFORE_MEAL": str(max(0, bell_time_before_meal)),
-        "TORRETRAY_SCHEDULE_LOOKAHEAD_DAYS": str(max(1, schedule_lookahead_days)),
-        "TORRETRAY_BELL_INTERVAL_SECONDS": str(max(15, bell_interval_seconds)),
-        "TORRETRAY_BELL_MUTED": "true" if bell_muted else "false",
-    }
+    updates = _normalize_runtime_settings(
+        auto_refresh_minutes=auto_refresh_minutes,
+        loading_time_before_meal=loading_time_before_meal,
+        bell_time_before_meal=bell_time_before_meal,
+        schedule_lookahead_days=schedule_lookahead_days,
+        bell_interval_seconds=bell_interval_seconds,
+        bell_muted=bell_muted,
+    )
     legacy_key_aliases = {
         "TORRETRAY_PRELOAD_MINUTES": "TORRETRAY_LOADING_TIME_BEFORE_MEAL",
     }
@@ -231,6 +255,14 @@ def load_settings(*, test_now_override: datetime | None = None) -> AppSettings:
     project_root = Path(__file__).resolve().parents[2]
     _load_env_file(project_root)
     legacy_preload_minutes = max(0, _get_int("TORRETRAY_PRELOAD_MINUTES", 5))
+    loading_time_before_meal = max(
+        0,
+        _get_int("TORRETRAY_LOADING_TIME_BEFORE_MEAL", legacy_preload_minutes),
+    )
+    bell_time_before_meal = min(
+        max(0, _get_int("TORRETRAY_BELL_TIME_BEFORE_MEAL", legacy_preload_minutes)),
+        loading_time_before_meal,
+    )
 
     return AppSettings(
         project_root=project_root,
@@ -240,14 +272,8 @@ def load_settings(*, test_now_override: datetime | None = None) -> AppSettings:
             os.getenv("TORRETRAY_REQUEST_TIMEOUT_SECONDS", "10")
         ),
         auto_refresh_minutes=max(1, _get_int("TORRETRAY_AUTO_REFRESH_MINUTES", 5)),
-        loading_time_before_meal=max(
-            0,
-            _get_int("TORRETRAY_LOADING_TIME_BEFORE_MEAL", legacy_preload_minutes),
-        ),
-        bell_time_before_meal=max(
-            0,
-            _get_int("TORRETRAY_BELL_TIME_BEFORE_MEAL", legacy_preload_minutes),
-        ),
+        loading_time_before_meal=loading_time_before_meal,
+        bell_time_before_meal=bell_time_before_meal,
         schedule_lookahead_days=max(1, _get_int("TORRETRAY_SCHEDULE_LOOKAHEAD_DAYS", 7)),
         bell_interval_seconds=max(15, _get_int("TORRETRAY_BELL_INTERVAL_SECONDS", 60)),
         bell_muted=_get_bool("TORRETRAY_BELL_MUTED", False),
