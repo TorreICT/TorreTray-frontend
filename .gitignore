@@ -1,5 +1,6 @@
 __pycache__/
 pyenv/
+venv/
 *.pyc
 database_tray.db
 GUI/logs/

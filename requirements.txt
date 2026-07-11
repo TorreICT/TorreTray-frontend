@@ -4,3 +4,4 @@ jsonschema
 requests
 schedule
 simpleaudio
+pyqt5

@@ -1,6 +1,6 @@
 import requests
 from escpos.printer import Usb
-from jsonschema.compat import urlopen
+from urllib.request import urlopen
 from GUI.logger import *
 from database import *
 import time
