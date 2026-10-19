@@ -1,56 +1,45 @@
-import os
+from __future__ import annotations
+
+import argparse
 import sys
-import signal
-from parameters import *
-import subprocess
-from datetime import datetime, timedelta
-
-sys.path.append(WORKING_DIR_PATH)
+from datetime import date, datetime
+from pathlib import Path
 
 
-def keyboardInterruptHandler(signal, frame):
-    print("KeyboardInterrupt (ID: {}) preso. Killo i sottoprocessi...".format(signal))
-    p1.kill()
-    p2.kill()
-    # exit(0)
+PROJECT_ROOT = Path(__file__).resolve().parent
+SRC_PATH = PROJECT_ROOT / "src"
+
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
+
+from torretray_pi.app import run
+
+
+def _parse_test_time(value: str) -> datetime:
+    """Accept an ISO date or datetime for the tray app clock override."""
     try:
-        print('[+] Fatto...')
-        sys.exit(0)
-    except SystemExit:
-        print('[+] Bye')
-        os._exit(0)
+        return datetime.fromisoformat(value)
+    except ValueError:
+        try:
+            return datetime.combine(date.fromisoformat(value), datetime.min.time())
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(
+                "Expected YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS for --test-time."
+            ) from exc
 
 
-signal.signal(signal.SIGINT, keyboardInterruptHandler)
-signal.signal(signal.SIGTERM, keyboardInterruptHandler)
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Run the TorreTray tray app.")
+    parser.add_argument(
+        "--test-time",
+        "--testtime",
+        dest="test_time",
+        type=_parse_test_time,
+        help="Override the app clock using ISO date or datetime.",
+    )
+    return parser
 
 
-if os.path.exists('pyenv'):
-    p1 = subprocess.Popen(['pyenv/Scripts/python', WORKING_DIR_PATH + '/GUI/main_fe.py',
-                        WORKING_DIR_PATH])
-    p2 = subprocess.Popen(['pyenv/Scripts/python', WORKING_DIR_PATH + '/back_end/main_be.py',
-                        WORKING_DIR_PATH])
-else:
-    p1 = subprocess.Popen(['python3', WORKING_DIR_PATH + '/GUI/main_fe.py',
-                        WORKING_DIR_PATH])
-    p2 = subprocess.Popen(['python3', WORKING_DIR_PATH + '/back_end/main_be.py',
-                        WORKING_DIR_PATH])
-while True:
-    if datetime.now().strftime('%H:%M') == datetime.strptime('23:59', '%H:%M').strftime('%H:%M'):
-        for dir in ['GUI', 'back_end']:
-            path = os.path.join(WORKING_DIR_PATH, dir, 'logs')
-
-            def check_if_older(file):
-                from datetime import date
-                str = file.split('.')
-                filedate = date.fromisoformat(str[0])
-                days_between = date.today() - filedate
-                if int(days_between.days) > 7:
-                    return True
-
-            # Delete files older than X days
-            for f in os.listdir(path):
-                if check_if_older(f):
-                    f = os.path.join(path, f)
-                    os.remove(f)
-    pass
+if __name__ == "__main__":
+    args = _build_parser().parse_args()
+    raise SystemExit(run(test_now_override=args.test_time))
